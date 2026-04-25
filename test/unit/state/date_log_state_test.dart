@@ -1,11 +1,32 @@
+import 'package:date_app/src/data/date_log_repository.dart';
+import 'package:date_app/src/models/date_place.dart';
 import 'package:date_app/src/state/date_log_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+
+const _testPlace = DatePlace(
+  sido: '서울특별시',
+  sigungu: '마포구',
+  latitude: 37.5638,
+  longitude: 126.9085,
+);
 
 void main() {
+  setUpAll(() async {
+    Hive.init('.test_hive_state');
+    await DateLogRepository.init();
+  });
+
+  tearDownAll(() async {
+    await Hive.deleteBoxFromDisk('date_logs');
+    await Hive.close();
+  });
+
   late ProviderContainer container;
 
   setUp(() {
+    Hive.box<Map>('date_logs').clear();
     container = ProviderContainer();
   });
 
@@ -30,9 +51,7 @@ void main() {
             memo: '테스트',
             moodScore: 3,
             totalCost: 20000,
-            placeName: '테스트 장소',
-            latitude: 37.5,
-            longitude: 127.0,
+            place: _testPlace,
             tags: const [],
             photos: const [],
           );

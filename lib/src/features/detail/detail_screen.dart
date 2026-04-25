@@ -1,5 +1,7 @@
+import 'dart:io';
 import 'package:date_app/src/core/constants/app_constants.dart';
 import 'package:date_app/src/models/date_log.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -26,7 +28,25 @@ class DetailScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 40),
         children: [
-          // Hero section
+          // 이미지 슬라이더
+          if (log.photos.isNotEmpty) ...[
+            SizedBox(
+              height: 220,
+              child: PageView.builder(
+                itemCount: log.photos.length,
+                itemBuilder: (context, i) => Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(AppConstants.radiusL),
+                    child: _PhotoView(path: log.photos[i]),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+
+          // 히어로 섹션
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
@@ -41,107 +61,108 @@ class DetailScreen extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        log.title ?? log.placeName,
-                        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: AppConstants.textPrimary, letterSpacing: -0.3),
-                      ),
+                      Text(log.title ?? log.placeName, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: AppConstants.textPrimary, letterSpacing: -0.3)),
                       const SizedBox(height: 4),
-                      Text(
-                        '$moodLabel · $moodEmoji',
-                        style: const TextStyle(fontSize: 14, color: AppConstants.textSecondary),
-                      ),
+                      Text('$moodLabel · $moodEmoji', style: const TextStyle(fontSize: 14, color: AppConstants.textSecondary)),
                     ],
                   ),
                 ),
               ],
             ),
           ),
+          const SizedBox(height: 16),
 
-          const SizedBox(height: 20),
-
-          // Info section
-          _InfoSection(
-            children: [
-              _InfoRow(icon: Icons.calendar_today_outlined, label: '날짜', value: DateFormat('yyyy년 M월 d일 HH:mm').format(log.startedAt)),
-              _InfoRow(icon: Icons.location_on_outlined, label: '장소', value: log.placeName),
-              _InfoRow(icon: Icons.payments_outlined, label: '비용', value: '$costStr원'),
-            ],
-          ),
-
+          // 정보 섹션
+          _InfoSection(children: [
+            _InfoRow(icon: Icons.calendar_today_outlined, label: '날짜', value: DateFormat('yyyy년 M월 d일').format(log.startedAt)),
+            _InfoRow(icon: Icons.location_on_outlined, label: '장소', value: log.placeName),
+            _InfoRow(icon: Icons.payments_outlined, label: '비용', value: '$costStr원'),
+          ]),
           const SizedBox(height: 12),
-
-          _InfoSection(
-            children: [
-              _InfoRow(icon: Icons.notes_rounded, label: '메모', value: log.memo, multiLine: true),
-            ],
-          ),
+          _InfoSection(children: [
+            _InfoRow(icon: Icons.notes_rounded, label: '메모', value: log.memo, multiLine: true),
+          ]),
 
           if (log.tags.isNotEmpty) ...[
             const SizedBox(height: 12),
-            _InfoSection(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Row(
-                        children: [
-                          Icon(Icons.label_outline_rounded, size: 16, color: AppConstants.textSecondary),
-                          SizedBox(width: 6),
-                          Text('태그', style: TextStyle(fontSize: 13, color: AppConstants.textSecondary, fontWeight: FontWeight.w500)),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 6,
-                        children: log.tags.map((tag) => _TagChip(tag: tag)).toList(),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ],
-
-          const SizedBox(height: 12),
-
-          _InfoSection(
-            children: [
+            _InfoSection(children: [
               Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Row(
-                      children: [
-                        Icon(Icons.map_outlined, size: 16, color: AppConstants.textSecondary),
-                        SizedBox(width: 6),
-                        Text('위치 좌표', style: TextStyle(fontSize: 13, color: AppConstants.textSecondary, fontWeight: FontWeight.w500)),
-                      ],
-                    ),
+                    const Row(children: [
+                      Icon(Icons.label_outline_rounded, size: 16, color: AppConstants.textSecondary),
+                      SizedBox(width: 6),
+                      Text('태그', style: TextStyle(fontSize: 13, color: AppConstants.textSecondary, fontWeight: FontWeight.w500)),
+                    ]),
                     const SizedBox(height: 10),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: AppConstants.surface,
-                        borderRadius: BorderRadius.circular(AppConstants.radiusS),
-                      ),
-                      child: Text(
-                        '${log.latitude.toStringAsFixed(6)}, ${log.longitude.toStringAsFixed(6)}',
-                        style: const TextStyle(fontSize: 13, color: AppConstants.textPrimary, fontFamily: 'monospace'),
-                      ),
+                    Wrap(
+                      spacing: 6, runSpacing: 6,
+                      children: log.tags.map((tag) => _TagChip(tag: tag)).toList(),
                     ),
                   ],
                 ),
               ),
-            ],
-          ),
+            ]),
+          ],
+
+          const SizedBox(height: 12),
+          _InfoSection(children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Row(children: [
+                    Icon(Icons.map_outlined, size: 16, color: AppConstants.textSecondary),
+                    SizedBox(width: 6),
+                    Text('위치', style: TextStyle(fontSize: 13, color: AppConstants.textSecondary, fontWeight: FontWeight.w500)),
+                  ]),
+                  const SizedBox(height: 8),
+                  Text(log.place.sido, style: const TextStyle(fontSize: 12, color: AppConstants.textSecondary)),
+                  const SizedBox(height: 2),
+                  Text(log.place.displayName, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppConstants.textPrimary)),
+                ],
+              ),
+            ),
+          ]),
         ],
       ),
     );
+  }
+}
+
+class _PhotoView extends StatefulWidget {
+  const _PhotoView({required this.path});
+  final String path;
+
+  @override
+  State<_PhotoView> createState() => _PhotoViewState();
+}
+
+class _PhotoViewState extends State<_PhotoView> {
+  Uint8List? _bytes;
+
+  @override
+  void initState() {
+    super.initState();
+    if (!kIsWeb && !widget.path.startsWith('http')) {
+      try {
+        _bytes = File(widget.path).readAsBytesSync();
+      } catch (_) {}
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.path.startsWith('http')) {
+      return Image.network(widget.path, fit: BoxFit.cover, width: double.infinity);
+    }
+    if (_bytes != null) {
+      return Image.memory(_bytes!, fit: BoxFit.cover, width: double.infinity);
+    }
+    return Container(color: AppConstants.surface, child: const Center(child: Icon(Icons.image_outlined, size: 48, color: AppConstants.textSecondary)));
   }
 }
 
@@ -158,10 +179,7 @@ class _InfoSection extends StatelessWidget {
         border: Border.all(color: AppConstants.border),
       ),
       child: Column(
-        children: children
-            .expand((child) => [child, const Divider(height: 1)])
-            .toList()
-          ..removeLast(),
+        children: children.expand((c) => [c, const Divider(height: 1)]).toList()..removeLast(),
       ),
     );
   }
@@ -183,19 +201,9 @@ class _InfoRow extends StatelessWidget {
         children: [
           Icon(icon, size: 16, color: AppConstants.textSecondary),
           const SizedBox(width: 6),
-          SizedBox(
-            width: 40,
-            child: Text(label, style: const TextStyle(fontSize: 13, color: AppConstants.textSecondary, fontWeight: FontWeight.w500)),
-          ),
+          SizedBox(width: 36, child: Text(label, style: const TextStyle(fontSize: 13, color: AppConstants.textSecondary, fontWeight: FontWeight.w500))),
           const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(fontSize: 14, color: AppConstants.textPrimary, fontWeight: FontWeight.w500),
-              maxLines: multiLine ? null : 1,
-              overflow: multiLine ? null : TextOverflow.ellipsis,
-            ),
-          ),
+          Expanded(child: Text(value, style: const TextStyle(fontSize: 14, color: AppConstants.textPrimary, fontWeight: FontWeight.w500), maxLines: multiLine ? null : 1, overflow: multiLine ? null : TextOverflow.ellipsis)),
         ],
       ),
     );
@@ -210,10 +218,7 @@ class _TagChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-      decoration: BoxDecoration(
-        color: AppConstants.pinkLight,
-        borderRadius: BorderRadius.circular(AppConstants.radiusS),
-      ),
+      decoration: BoxDecoration(color: AppConstants.pinkLight, borderRadius: BorderRadius.circular(AppConstants.radiusS)),
       child: Text(tag, style: const TextStyle(fontSize: 12, color: AppConstants.pink, fontWeight: FontWeight.w600)),
     );
   }
