@@ -12,8 +12,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart';
 
-// 줌 레벨 기준: 이 이상이면 마커 표시
-const double _markerShowZoom = 9.0;
 
 class MapScreen extends ConsumerStatefulWidget {
   const MapScreen({super.key});
@@ -24,19 +22,16 @@ class MapScreen extends ConsumerStatefulWidget {
 
 class _MapScreenState extends ConsumerState<MapScreen> {
   final _mapController = MapController();
-  double _currentZoom = 7.0;
+  double _currentZoom = 7.0; // 한반도 전체 뷰
 
   @override
   Widget build(BuildContext context) {
     final logs = ref.watch(dateLogControllerProvider);
-    final showMarkers = _currentZoom >= _markerShowZoom;
-
     return Stack(
       children: [
         FlutterMap(
           mapController: _mapController,
           options: MapOptions(
-            // 한반도 중심, 전체가 보이는 줌
             initialCenter: const LatLng(36.5, 127.8),
             initialZoom: _currentZoom,
             onMapEvent: (event) {
@@ -53,24 +48,19 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               urlTemplate: AppConstants.osmTileUrl,
               userAgentPackageName: AppConstants.userAgentPackage,
             ),
-            if (showMarkers)
-              MarkerLayer(
-                markers: logs.map((log) {
-                  return Marker(
-                    point: LatLng(log.latitude, log.longitude),
-                    width: 60,
-                    height: 72,
-                    child: GestureDetector(
-                      onTap: () => _showPreview(context, log.id),
-                      child: AnimatedOpacity(
-                        duration: const Duration(milliseconds: 200),
-                        opacity: ((_currentZoom - _markerShowZoom) / 1.0).clamp(0.0, 1.0),
-                        child: _MapMarker(log: log),
-                      ),
-                    ),
-                  );
-                }).toList(),
-              ),
+            MarkerLayer(
+              markers: logs.map((log) {
+                return Marker(
+                  point: LatLng(log.latitude, log.longitude),
+                  width: 60,
+                  height: 72,
+                  child: GestureDetector(
+                    onTap: () => _showPreview(context, log.id),
+                    child: _MapMarker(log: log),
+                  ),
+                );
+              }).toList(),
+            ),
           ],
         ),
 
