@@ -16,7 +16,9 @@
       "Bash(wait 26897)",
       "Read(//proc/26897/fd/**)",
       "Read(//Applications/**)",
-      "Bash(system_profiler SPUSBDataType)"
+      "Bash(system_profiler SPUSBDataType)",
+      "Bash(/opt/homebrew/bin/flutter analyze *)",
+      "Bash(pkill -f \"flutter run\")"
     ],
     "additionalDirectories": [
       "/Users/jaemin/Desktop/date_app/.claude"
