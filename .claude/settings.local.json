@@ -1,7 +1,25 @@
 {
   "permissions": {
     "allow": [
-      "Bash(flutter --version)"
+      "Bash(flutter --version)",
+      "Bash(flutter devices *)",
+      "Bash(sw_vers)",
+      "Bash(xcode-select -p)",
+      "Bash(brew --version)",
+      "Bash(brew install *)",
+      "Bash(/opt/homebrew/bin/flutter doctor *)",
+      "Bash(/opt/homebrew/bin/flutter devices *)",
+      "Bash(/opt/homebrew/bin/flutter pub *)",
+      "Bash(/opt/homebrew/bin/flutter run *)",
+      "Bash(echo \"PID: $!\")",
+      "Bash(jobs)",
+      "Bash(wait 26897)",
+      "Read(//proc/26897/fd/**)",
+      "Read(//Applications/**)",
+      "Bash(system_profiler SPUSBDataType)"
+    ],
+    "additionalDirectories": [
+      "/Users/jaemin/Desktop/date_app/.claude"
     ]
   }
 }

@@ -47,3 +47,7 @@ Thumbs.db
 
 # Test coverage
 coverage/
+
+
+#docs
+docs/ 
