@@ -1,25 +1,47 @@
+import 'dart:io';
+import 'dart:typed_data';
+import 'dart:ui' as ui;
 import 'package:date_app/src/core/constants/app_constants.dart';
 import 'package:date_app/src/features/detail/detail_screen.dart';
+import 'package:date_app/src/models/date_log.dart';
 import 'package:date_app/src/state/date_log_state.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart';
 
-class MapScreen extends ConsumerWidget {
+
+class MapScreen extends ConsumerStatefulWidget {
   const MapScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final logs = ref.watch(dateLogControllerProvider);
+  ConsumerState<MapScreen> createState() => _MapScreenState();
+}
 
+class _MapScreenState extends ConsumerState<MapScreen> {
+  final _mapController = MapController();
+  double _currentZoom = 7.0; // 한반도 전체 뷰
+
+  @override
+  Widget build(BuildContext context) {
+    final logs = ref.watch(dateLogControllerProvider);
     return Stack(
       children: [
         FlutterMap(
-          options: const MapOptions(
-            initialCenter: LatLng(37.5665, 126.9780),
-            initialZoom: 11,
+          mapController: _mapController,
+          options: MapOptions(
+            initialCenter: const LatLng(36.5, 127.8),
+            initialZoom: _currentZoom,
+            onMapEvent: (event) {
+              if (event is MapEventMove || event is MapEventScrollWheelZoom || event is MapEventFlingAnimation) {
+                final zoom = _mapController.camera.zoom;
+                if ((zoom - _currentZoom).abs() > 0.1) {
+                  setState(() => _currentZoom = zoom);
+                }
+              }
+            },
           ),
           children: [
             TileLayer(
@@ -28,24 +50,13 @@ class MapScreen extends ConsumerWidget {
             ),
             MarkerLayer(
               markers: logs.map((log) {
-                final emoji = AppConstants.moodEmojis[log.moodScore.clamp(1, 5)];
                 return Marker(
                   point: LatLng(log.latitude, log.longitude),
-                  width: 52,
-                  height: 52,
+                  width: 60,
+                  height: 72,
                   child: GestureDetector(
-                    onTap: () => _showPreview(context, ref, log.id),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: AppConstants.pink, width: 2),
-                        boxShadow: [
-                          BoxShadow(color: Colors.black.withAlpha(25), blurRadius: 8, offset: const Offset(0, 2)),
-                        ],
-                      ),
-                      child: Center(child: Text(emoji, style: const TextStyle(fontSize: 22))),
-                    ),
+                    onTap: () => _showPreview(context, log.id),
+                    child: _MapMarker(log: log),
                   ),
                 );
               }).toList(),
@@ -80,7 +91,6 @@ class MapScreen extends ConsumerWidget {
           ),
         ),
 
-        // Empty hint
         if (logs.isEmpty)
           Center(
             child: Container(
@@ -97,7 +107,7 @@ class MapScreen extends ConsumerWidget {
     );
   }
 
-  void _showPreview(BuildContext context, WidgetRef ref, String logId) {
+  void _showPreview(BuildContext context, String logId) {
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.white,
@@ -109,6 +119,136 @@ class MapScreen extends ConsumerWidget {
   }
 }
 
+// ── 마커 위젯 ───────────────────────────────────────────────────────────────
+class _MapMarker extends StatefulWidget {
+  const _MapMarker({required this.log});
+  final DateLog log;
+
+  @override
+  State<_MapMarker> createState() => _MapMarkerState();
+}
+
+class _MapMarkerState extends State<_MapMarker> {
+  Uint8List? _bytes;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadImage();
+  }
+
+  Future<void> _loadImage() async {
+    final photos = widget.log.photos;
+    if (photos.isEmpty) return;
+    final path = photos.first;
+    try {
+      Uint8List bytes;
+      if (path.startsWith('http')) {
+        // 네트워크 이미지는 Image.network로 처리 (별도 로드 불필요)
+        return;
+      } else if (kIsWeb) {
+        // web: XFile blob URL → bytes
+        return; // web blob URL은 Image.network로 처리
+      } else {
+        bytes = await File(path).readAsBytes();
+      }
+      if (mounted) setState(() => _bytes = bytes);
+    } catch (_) {}
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final moodColor = AppConstants.moodColors[widget.log.moodScore.clamp(1, 5)];
+    final moodEmoji = AppConstants.moodEmojis[widget.log.moodScore.clamp(1, 5)];
+    final hasPhoto = widget.log.photos.isNotEmpty;
+    final photoPath = hasPhoto ? widget.log.photos.first : null;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 52,
+          height: 52,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            shape: BoxShape.circle,
+            border: Border.all(color: moodColor == Colors.transparent ? AppConstants.pink : moodColor, width: 2.5),
+            boxShadow: [
+              BoxShadow(color: Colors.black.withAlpha(30), blurRadius: 8, offset: const Offset(0, 3)),
+            ],
+          ),
+          child: ClipOval(
+            child: _markerContent(hasPhoto, photoPath, moodEmoji, moodColor),
+          ),
+        ),
+        // 말풍선 꼬리
+        CustomPaint(
+          size: const Size(12, 7),
+          painter: _TailPainter(color: moodColor == Colors.transparent ? AppConstants.pink : moodColor),
+        ),
+      ],
+    );
+  }
+
+  Widget _markerContent(bool hasPhoto, String? photoPath, String emoji, Color moodColor) {
+    // 이미지 bytes 로드됨 (mobile)
+    if (_bytes != null) {
+      return Image.memory(_bytes!, fit: BoxFit.cover, width: 52, height: 52);
+    }
+
+    // 네트워크 or web blob URL
+    if (hasPhoto && photoPath != null) {
+      if (photoPath.startsWith('http') || photoPath.startsWith('blob:')) {
+        return Image.network(
+          photoPath,
+          fit: BoxFit.cover,
+          width: 52,
+          height: 52,
+          errorBuilder: (_, __, ___) => _EmojiContent(emoji: emoji, color: moodColor),
+        );
+      }
+    }
+
+    // 사진 없음 → 이모지
+    return _EmojiContent(emoji: emoji, color: moodColor);
+  }
+}
+
+class _EmojiContent extends StatelessWidget {
+  const _EmojiContent({required this.emoji, required this.color});
+  final String emoji;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: color.withAlpha(60),
+      child: Center(child: Text(emoji, style: const TextStyle(fontSize: 24))),
+    );
+  }
+}
+
+// 말풍선 꼬리 Painter
+class _TailPainter extends CustomPainter {
+  const _TailPainter({required this.color});
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = color;
+    final path = ui.Path()
+      ..moveTo(0, 0)
+      ..lineTo(size.width / 2, size.height)
+      ..lineTo(size.width, 0)
+      ..close();
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(_TailPainter old) => old.color != color;
+}
+
+// ── 공통 위젯 ───────────────────────────────────────────────────────────────
 class _MapIconButton extends StatelessWidget {
   const _MapIconButton({required this.icon, required this.onTap});
   final IconData icon;
@@ -152,37 +292,32 @@ class _MapLogPreview extends StatelessWidget {
           children: [
             Center(
               child: Container(
-                width: 36,
-                height: 4,
+                width: 36, height: 4,
                 decoration: BoxDecoration(color: AppConstants.border, borderRadius: BorderRadius.circular(2)),
               ),
             ),
             const SizedBox(height: 16),
             Row(
               children: [
-                Container(
-                  width: 52,
-                  height: 52,
-                  decoration: BoxDecoration(
-                    color: moodColor,
-                    borderRadius: BorderRadius.circular(AppConstants.radiusM),
-                  ),
-                  child: Center(child: Text(moodEmoji, style: const TextStyle(fontSize: 28))),
+                // 바텀시트 썸네일도 이미지 우선
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(AppConstants.radiusM),
+                  child: log.photos.isNotEmpty
+                      ? _PreviewThumb(path: log.photos.first, moodColor: moodColor, moodEmoji: moodEmoji)
+                      : Container(
+                          width: 56, height: 56,
+                          color: moodColor.withAlpha(80),
+                          child: Center(child: Text(moodEmoji, style: const TextStyle(fontSize: 28))),
+                        ),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        log.title ?? log.placeName,
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppConstants.textPrimary),
-                      ),
+                      Text(log.title ?? log.placeName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppConstants.textPrimary)),
                       const SizedBox(height: 3),
-                      Text(
-                        '${log.placeName}  ·  $costStr원',
-                        style: const TextStyle(fontSize: 13, color: AppConstants.textSecondary),
-                      ),
+                      Text('${log.placeName}  ·  $costStr원', style: const TextStyle(fontSize: 13, color: AppConstants.textSecondary)),
                     ],
                   ),
                 ),
@@ -193,16 +328,8 @@ class _MapLogPreview extends StatelessWidget {
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AppConstants.surface,
-                  borderRadius: BorderRadius.circular(AppConstants.radiusM),
-                ),
-                child: Text(
-                  log.memo,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 13, color: AppConstants.textSecondary, height: 1.5),
-                ),
+                decoration: BoxDecoration(color: AppConstants.surface, borderRadius: BorderRadius.circular(AppConstants.radiusM)),
+                child: Text(log.memo, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, color: AppConstants.textSecondary, height: 1.5)),
               ),
             ],
             const SizedBox(height: 16),
@@ -216,6 +343,47 @@ class _MapLogPreview extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _PreviewThumb extends StatefulWidget {
+  const _PreviewThumb({required this.path, required this.moodColor, required this.moodEmoji});
+  final String path;
+  final Color moodColor;
+  final String moodEmoji;
+
+  @override
+  State<_PreviewThumb> createState() => _PreviewThumbState();
+}
+
+class _PreviewThumbState extends State<_PreviewThumb> {
+  Uint8List? _bytes;
+
+  @override
+  void initState() {
+    super.initState();
+    if (!kIsWeb && !widget.path.startsWith('http')) {
+      try {
+        File(widget.path).readAsBytes().then((b) {
+          if (mounted) setState(() => _bytes = b);
+        });
+      } catch (_) {}
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.path.startsWith('http') || widget.path.startsWith('blob:')) {
+      return Image.network(widget.path, width: 56, height: 56, fit: BoxFit.cover);
+    }
+    if (_bytes != null) {
+      return Image.memory(_bytes!, width: 56, height: 56, fit: BoxFit.cover);
+    }
+    return Container(
+      width: 56, height: 56,
+      color: widget.moodColor.withAlpha(80),
+      child: Center(child: Text(widget.moodEmoji, style: const TextStyle(fontSize: 28))),
     );
   }
 }

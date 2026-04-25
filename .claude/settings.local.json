@@ -18,7 +18,12 @@
       "Read(//Applications/**)",
       "Bash(system_profiler SPUSBDataType)",
       "Bash(/opt/homebrew/bin/flutter analyze *)",
-      "Bash(pkill -f \"flutter run\")"
+      "Bash(pkill -f \"flutter run\")",
+      "Bash(/opt/homebrew/bin/flutter create *)",
+      "Bash(sudo xcodebuild *)",
+      "Bash(/opt/homebrew/bin/flutter emulators *)",
+      "Bash(xcrun simctl *)",
+      "Bash(open -a Simulator)"
     ],
     "additionalDirectories": [
       "/Users/jaemin/Desktop/date_app/.claude"
