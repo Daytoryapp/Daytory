@@ -1,9 +1,9 @@
-# Environment
+# ─── Environment ─────────────────────────────────────────────────────────────
 .env
 .env.local
 .env.*.local
 
-# Flutter/Dart
+# ─── Flutter / Dart ───────────────────────────────────────────────────────────
 .dart_tool/
 .flutter-plugins
 .flutter-plugins-dependencies
@@ -12,14 +12,14 @@ build/
 *.g.dart
 *.freezed.dart
 
-# iOS
+# ─── iOS ──────────────────────────────────────────────────────────────────────
 ios/Pods/
 ios/.symlinks/
 ios/Flutter/Flutter.framework
 ios/Flutter/Flutter.podspec
 ios/Runner/GeneratedPluginRegistrant.*
 
-# Android
+# ─── Android ──────────────────────────────────────────────────────────────────
 android/.gradle/
 android/local.properties
 android/key.properties
@@ -29,28 +29,25 @@ android/key.properties
 **/android/local.properties
 **/android/GeneratedPluginRegistrant.java
 
-# macOS
+# ─── macOS ────────────────────────────────────────────────────────────────────
 macos/Pods/
 macos/Flutter/GeneratedPluginRegistrant.swift
 
-# Web
+# ─── Web ──────────────────────────────────────────────────────────────────────
 lib/generated_plugin_registrant.dart
 
-# IDE
+# ─── IDE ──────────────────────────────────────────────────────────────────────
 .idea/
-.vscode/settings.json
 *.iml
+.vscode/settings.json
 
-# OS
+# ─── OS ───────────────────────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
 
-# Test coverage
+# ─── Test artifacts ───────────────────────────────────────────────────────────
 coverage/
+.test_hive*/
 
-
-#docs
-docs/ 
-
-#cluade
-.claude/
+# ─── Claude Code (로컬 설정만 제외, agents/는 추적) ──────────────────────────
+.claude/settings.local.json
