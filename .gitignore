@@ -51,3 +51,6 @@ coverage/
 
 #docs
 docs/ 
+
+#cluade
+.claude/
