@@ -17,7 +17,10 @@ ios/Pods/
 ios/.symlinks/
 ios/Flutter/Flutter.framework
 ios/Flutter/Flutter.podspec
+ios/Flutter/Generated.xcconfig
+ios/Flutter/app.flx
 ios/Runner/GeneratedPluginRegistrant.*
+ios/Runner.xcworkspace/xcuserdata/
 
 # ─── Android ──────────────────────────────────────────────────────────────────
 android/.gradle/
@@ -43,7 +46,16 @@ lib/generated_plugin_registrant.dart
 
 # ─── OS ───────────────────────────────────────────────────────────────────────
 .DS_Store
+.DS_Store?
 Thumbs.db
+ehthumbs.db
+
+# ─── Logs ─────────────────────────────────────────────────────────────────────
+*.log
+logs/
+
+# ─── Hive 런타임 데이터 ────────────────────────────────────────────────────────
+*.hive
 
 # ─── Test artifacts ───────────────────────────────────────────────────────────
 coverage/

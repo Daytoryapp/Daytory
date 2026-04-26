@@ -1,0 +1,72 @@
+# ─── DayStory 개발 환경 요구사항 ──────────────────────────────────────────────
+
+## 필수 도구
+
+| 도구          | 버전            | 비고                        |
+|---------------|-----------------|------------------------------|
+| Flutter SDK   | >= 3.41.7       | stable 채널                  |
+| Dart SDK      | >= 3.11.5       | Flutter에 포함               |
+| Xcode         | >= 16.0         | iOS 빌드 필수 (Mac 전용)     |
+| CocoaPods     | >= 1.16.2       | iOS 패키지 관리              |
+| Android Studio| >= 2024.x       | Android 빌드 (선택)          |
+
+## Flutter 설치
+
+```bash
+# Flutter SDK 설치 (공식)
+git clone https://github.com/flutter/flutter.git -b stable
+export PATH="$PATH:`pwd`/flutter/bin"
+
+# 설치 확인
+flutter doctor
+```
+
+## iOS 설정
+
+```bash
+# CocoaPods 설치
+sudo gem install cocoapods
+
+# 의존성 설치
+cd ios && pod install && cd ..
+```
+
+## 프로젝트 설정
+
+```bash
+# 1. 패키지 설치
+flutter pub get
+
+# 2. .env 파일 생성 (.env.example 참고)
+cp .env.example .env
+# .env에 실제 키 값 입력
+
+# 3. 실행
+flutter run
+```
+
+## 환경 변수 (.env)
+
+| 키                    | 설명                          | 필수 |
+|-----------------------|-------------------------------|------|
+| KAKAO_NATIVE_APP_KEY  | 카카오 iOS 네이티브 앱 키     | ✅   |
+| SUPABASE_URL          | Supabase 프로젝트 URL         | 추후 |
+| SUPABASE_ANON_KEY     | Supabase anon public key      | 추후 |
+
+## 카카오 개발자 설정
+
+1. https://developers.kakao.com 접속
+2. 내 애플리케이션 → 앱 선택
+3. 앱 설정 → 플랫폼 → iOS
+   - 번들 ID: `com.kakao.developer`
+4. 앱 키 → 네이티브 앱 키 복사 → .env에 입력
+
+## 주요 패키지
+
+- `flutter_riverpod` — 상태 관리
+- `table_calendar` — 캘린더
+- `flutter_map` + `latlong2` — OSM 지도
+- `kakao_flutter_sdk_user` — 카카오 로그인
+- `hive_flutter` — 로컬 저장소
+- `image_picker` — 이미지 선택
+- `cached_network_image` — 네트워크 이미지 캐싱

@@ -35,8 +35,8 @@ class DateLogRepository {
   void _seed() {
     final now = DateTime.now();
     final places = [
-      DatePlace(sido: '서울특별시', sigungu: '마포구', latitude: 37.5638, longitude: 126.9085),
-      DatePlace(sido: '서울특별시', sigungu: '마포구', latitude: 37.5572, longitude: 126.9245),
+      const DatePlace(sido: '서울특별시', sigungu: '마포구', latitude: 37.5638, longitude: 126.9085),
+      const DatePlace(sido: '서울특별시', sigungu: '마포구', latitude: 37.5572, longitude: 126.9245),
     ];
     final seeds = [
       DateLog(
