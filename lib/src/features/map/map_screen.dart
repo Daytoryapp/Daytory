@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:date_app/src/core/constants/app_constants.dart';
+import 'package:date_app/src/core/widgets/rabbit_mood_widget.dart';
 import 'package:date_app/src/features/detail/detail_screen.dart';
 import 'package:date_app/src/models/date_log.dart';
 import 'package:date_app/src/state/date_log_state.dart';
@@ -21,7 +22,7 @@ class MapScreen extends ConsumerStatefulWidget {
 
 class _MapScreenState extends ConsumerState<MapScreen> {
   final _mapController = MapController();
-  double _currentZoom = 7.0; // 한반도 전체 뷰
+  double _currentZoom = 7.0;
 
   @override
   Widget build(BuildContext context) {
@@ -113,7 +114,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(AppConstants.radiusXL)),
       ),
-      builder: (_) => _MapLogPreview(logId: logId, ref: ref),
+      builder: (_) => _MapLogPreview(logId: logId),
     );
   }
 }
@@ -141,24 +142,17 @@ class _MapMarkerState extends State<_MapMarker> {
     if (photos.isEmpty) return;
     final path = photos.first;
     try {
-      Uint8List bytes;
-      if (path.startsWith('http')) {
-        // 네트워크 이미지는 Image.network로 처리 (별도 로드 불필요)
-        return;
-      } else if (kIsWeb) {
-        // web: XFile blob URL → bytes
-        return; // web blob URL은 Image.network로 처리
-      } else {
-        bytes = await File(path).readAsBytes();
-      }
+      if (path.startsWith('http') || kIsWeb) return;
+      final bytes = await File(path).readAsBytes();
       if (mounted) setState(() => _bytes = bytes);
     } catch (_) {}
   }
 
   @override
   Widget build(BuildContext context) {
-    final moodColor = AppConstants.moodColors[widget.log.moodScore.clamp(1, 5)];
-    final moodEmoji = AppConstants.moodEmojis[widget.log.moodScore.clamp(1, 5)];
+    final moodScore = widget.log.moodScore.clamp(1, 5);
+    final moodColor = AppConstants.moodColors[moodScore];
+    final borderColor = AppConstants.moodBorderColors[moodScore];
     final hasPhoto = widget.log.photos.isNotEmpty;
     final photoPath = hasPhoto ? widget.log.photos.first : null;
 
@@ -171,76 +165,67 @@ class _MapMarkerState extends State<_MapMarker> {
           decoration: BoxDecoration(
             color: Colors.white,
             shape: BoxShape.circle,
-            border: Border.all(color: moodColor == Colors.transparent ? AppConstants.pink : moodColor, width: 2.5),
+            border: Border.all(color: borderColor, width: 2.5),
             boxShadow: [
               BoxShadow(color: Colors.black.withAlpha(30), blurRadius: 8, offset: const Offset(0, 3)),
             ],
           ),
           child: ClipOval(
-            child: _markerContent(hasPhoto, photoPath, moodEmoji, moodColor),
+            child: _markerContent(hasPhoto, photoPath, moodScore, moodColor),
           ),
         ),
-        // 말풍선 꼬리
         CustomPaint(
           size: const Size(12, 7),
-          painter: _TailPainter(color: moodColor == Colors.transparent ? AppConstants.pink : moodColor),
+          painter: _TailPainter(color: borderColor),
         ),
       ],
     );
   }
 
-  Widget _markerContent(bool hasPhoto, String? photoPath, String emoji, Color moodColor) {
-    // 이미지 bytes 로드됨 (mobile)
+  Widget _markerContent(bool hasPhoto, String? photoPath, int moodScore, Color moodColor) {
     if (_bytes != null) {
       return Image.memory(_bytes!, fit: BoxFit.cover, width: 52, height: 52);
     }
-
-    // 네트워크 or web blob URL
-    if (hasPhoto && photoPath != null) {
-      if (photoPath.startsWith('http') || photoPath.startsWith('blob:')) {
-        return Image.network(
-          photoPath,
-          fit: BoxFit.cover,
-          width: 52,
-          height: 52,
-          errorBuilder: (_, __, ___) => _EmojiContent(emoji: emoji, color: moodColor),
-        );
-      }
+    if (hasPhoto && photoPath != null && (photoPath.startsWith('http') || photoPath.startsWith('blob:'))) {
+      return Image.network(
+        photoPath,
+        fit: BoxFit.cover,
+        width: 52,
+        height: 52,
+        errorBuilder: (_, __, ___) => _RabbitMarkerContent(moodScore: moodScore, moodColor: moodColor),
+      );
     }
-
-    // 사진 없음 → 이모지
-    return _EmojiContent(emoji: emoji, color: moodColor);
+    return _RabbitMarkerContent(moodScore: moodScore, moodColor: moodColor);
   }
 }
 
-class _EmojiContent extends StatelessWidget {
-  const _EmojiContent({required this.emoji, required this.color});
-  final String emoji;
-  final Color color;
+class _RabbitMarkerContent extends StatelessWidget {
+  const _RabbitMarkerContent({required this.moodScore, required this.moodColor});
+  final int moodScore;
+  final Color moodColor;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: color.withAlpha(60),
-      child: Center(child: Text(emoji, style: const TextStyle(fontSize: 24))),
+      color: moodColor.withAlpha(60),
+      child: Center(child: RabbitMoodWidget(moodScore: moodScore, size: 32)),
     );
   }
 }
 
-// 말풍선 꼬리 Painter
+// 말풍선 꼬리
 class _TailPainter extends CustomPainter {
   const _TailPainter({required this.color});
   final Color color;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = color;
     final path = ui.Path()
       ..moveTo(0, 0)
       ..lineTo(size.width / 2, size.height)
       ..lineTo(size.width, 0)
       ..close();
-    canvas.drawPath(path, paint);
+    canvas.drawPath(path, Paint()..color = color);
   }
 
   @override
@@ -271,16 +256,52 @@ class _MapIconButton extends StatelessWidget {
   }
 }
 
-class _MapLogPreview extends StatelessWidget {
-  const _MapLogPreview({required this.logId, required this.ref});
+// ── 바텀시트 프리뷰 (ConsumerStatefulWidget) ────────────────────────────────
+class _MapLogPreview extends ConsumerStatefulWidget {
+  const _MapLogPreview({required this.logId});
   final String logId;
-  final WidgetRef ref;
+
+  @override
+  ConsumerState<_MapLogPreview> createState() => _MapLogPreviewState();
+}
+
+class _MapLogPreviewState extends ConsumerState<_MapLogPreview> {
+  bool _deleting = false;
+
+  Future<void> _confirmDelete() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('기록 삭제'),
+        content: const Text('이 기록을 삭제할까요?\n삭제 후 복구할 수 없어요.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('취소', style: TextStyle(color: AppConstants.textSecondary)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('삭제', style: TextStyle(color: AppConstants.pink, fontWeight: FontWeight.w600)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) {
+      setState(() => _deleting = true);
+      await ref.read(dateLogControllerProvider.notifier).delete(widget.logId);
+      if (mounted) Navigator.of(context).pop();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final log = ref.watch(dateLogControllerProvider).firstWhere((item) => item.id == logId);
-    final moodEmoji = AppConstants.moodEmojis[log.moodScore.clamp(1, 5)];
-    final moodColor = AppConstants.moodColors[log.moodScore.clamp(1, 5)];
+    final logs = ref.watch(dateLogControllerProvider);
+    final matches = logs.where((l) => l.id == widget.logId).toList();
+    if (matches.isEmpty) return const SizedBox.shrink();
+
+    final log = matches.first;
+    final moodScore = log.moodScore.clamp(1, 5);
+    final moodColor = AppConstants.moodColors[moodScore];
     final costStr = NumberFormat('#,###').format(log.totalCost.toInt());
 
     return SafeArea(
@@ -289,6 +310,7 @@ class _MapLogPreview extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // Handle bar
             Center(
               child: Container(
                 width: 36, height: 4,
@@ -296,17 +318,18 @@ class _MapLogPreview extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
+
+            // Log info row
             Row(
               children: [
-                // 바텀시트 썸네일도 이미지 우선
                 ClipRRect(
                   borderRadius: BorderRadius.circular(AppConstants.radiusM),
                   child: log.photos.isNotEmpty
-                      ? _PreviewThumb(path: log.photos.first, moodColor: moodColor, moodEmoji: moodEmoji)
+                      ? _PreviewThumb(path: log.photos.first, moodScore: moodScore, moodColor: moodColor)
                       : Container(
-                          width: 56, height: 56,
+                          width: 64, height: 64,
                           color: moodColor.withAlpha(80),
-                          child: Center(child: Text(moodEmoji, style: const TextStyle(fontSize: 28))),
+                          child: Center(child: RabbitMoodWidget(moodScore: moodScore, size: 44)),
                         ),
                 ),
                 const SizedBox(width: 14),
@@ -314,30 +337,83 @@ class _MapLogPreview extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(log.title ?? log.placeName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppConstants.textPrimary)),
-                      const SizedBox(height: 3),
-                      Text('${log.placeName}  ·  $costStr원', style: const TextStyle(fontSize: 13, color: AppConstants.textSecondary)),
+                      Text(
+                        log.title ?? log.placeName,
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppConstants.textPrimary),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          const Icon(Icons.location_on_outlined, size: 12, color: AppConstants.textSecondary),
+                          const SizedBox(width: 2),
+                          Expanded(
+                            child: Text(
+                              '${log.placeName}  ·  $costStr원',
+                              style: const TextStyle(fontSize: 13, color: AppConstants.textSecondary),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
                     ],
                   ),
                 ),
               ],
             ),
+
             if (log.memo.isNotEmpty) ...[
               const SizedBox(height: 12),
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(color: AppConstants.surface, borderRadius: BorderRadius.circular(AppConstants.radiusM)),
-                child: Text(log.memo, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, color: AppConstants.textSecondary, height: 1.5)),
+                decoration: BoxDecoration(
+                  color: AppConstants.surface,
+                  borderRadius: BorderRadius.circular(AppConstants.radiusM),
+                ),
+                child: Text(
+                  log.memo,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 13, color: AppConstants.textSecondary, height: 1.5),
+                ),
               ),
             ],
+
             const SizedBox(height: 16),
-            FilledButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => DetailScreen(log: log)));
-              },
-              child: const Text('상세 보기'),
+
+            // Action buttons
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _deleting ? null : _confirmDelete,
+                    icon: _deleting
+                        ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                        : const Icon(Icons.delete_outline_rounded, size: 16),
+                    label: const Text('삭제'),
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(double.infinity, 48),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppConstants.radiusM)),
+                      side: const BorderSide(color: AppConstants.pinkMid),
+                      foregroundColor: AppConstants.pink,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: FilledButton(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => DetailScreen(log: log)));
+                    },
+                    style: FilledButton.styleFrom(minimumSize: const Size(double.infinity, 48)),
+                    child: const Text('상세 보기'),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -347,10 +423,10 @@ class _MapLogPreview extends StatelessWidget {
 }
 
 class _PreviewThumb extends StatefulWidget {
-  const _PreviewThumb({required this.path, required this.moodColor, required this.moodEmoji});
+  const _PreviewThumb({required this.path, required this.moodScore, required this.moodColor});
   final String path;
+  final int moodScore;
   final Color moodColor;
-  final String moodEmoji;
 
   @override
   State<_PreviewThumb> createState() => _PreviewThumbState();
@@ -374,15 +450,15 @@ class _PreviewThumbState extends State<_PreviewThumb> {
   @override
   Widget build(BuildContext context) {
     if (widget.path.startsWith('http') || widget.path.startsWith('blob:')) {
-      return Image.network(widget.path, width: 56, height: 56, fit: BoxFit.cover);
+      return Image.network(widget.path, width: 64, height: 64, fit: BoxFit.cover);
     }
     if (_bytes != null) {
-      return Image.memory(_bytes!, width: 56, height: 56, fit: BoxFit.cover);
+      return Image.memory(_bytes!, width: 64, height: 64, fit: BoxFit.cover);
     }
     return Container(
-      width: 56, height: 56,
+      width: 64, height: 64,
       color: widget.moodColor.withAlpha(80),
-      child: Center(child: Text(widget.moodEmoji, style: const TextStyle(fontSize: 28))),
+      child: Center(child: RabbitMoodWidget(moodScore: widget.moodScore, size: 44)),
     );
   }
 }

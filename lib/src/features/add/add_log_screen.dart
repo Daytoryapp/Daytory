@@ -1,4 +1,5 @@
 import 'package:date_app/src/core/constants/app_constants.dart';
+import 'package:date_app/src/core/widgets/rabbit_mood_widget.dart';
 import 'package:date_app/src/features/add/widgets/image_picker_row.dart';
 import 'package:date_app/src/features/add/widgets/place_picker.dart';
 import 'package:date_app/src/models/date_place.dart';
@@ -158,15 +159,24 @@ class _AddLogScreenState extends ConsumerState<AddLogScreen> {
     for (final image in _images) {
       try {
         final bytes = await image.readAsBytes();
-        final ext = image.name.contains('.') ? image.name.split('.').last.toLowerCase() : 'jpg';
+        // iOS는 HEIC로 올 수 있으므로 항상 jpeg로 처리
+        final rawExt = image.name.contains('.')
+            ? image.name.split('.').last.toLowerCase()
+            : 'jpg';
+        final ext = (rawExt == 'heic' || rawExt == 'heif') ? 'jpg' : rawExt;
         final path = '${DateTime.now().millisecondsSinceEpoch}_${uuid.v4()}.$ext';
+        debugPrint('[Upload] path=$path size=${bytes.length}bytes');
         await client.storage.from('photos').uploadBinary(
           path,
           bytes,
           fileOptions: FileOptions(contentType: 'image/$ext'),
         );
-        urls.add(client.storage.from('photos').getPublicUrl(path));
-      } catch (_) {}
+        final url = client.storage.from('photos').getPublicUrl(path);
+        debugPrint('[Upload] success url=$url');
+        urls.add(url);
+      } catch (e) {
+        debugPrint('[Upload] ERROR: $e');
+      }
     }
     return urls;
   }
@@ -330,7 +340,7 @@ class _MoodSelector extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(AppConstants.moodEmojis[mood], style: TextStyle(fontSize: isSelected ? 28 : 22)),
+                RabbitMoodWidget(moodScore: mood, size: isSelected ? 34 : 28),
                 const SizedBox(height: 4),
                 Text(
                   AppConstants.moodLabels[mood],

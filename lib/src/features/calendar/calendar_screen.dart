@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:date_app/src/core/constants/app_constants.dart';
+import 'package:date_app/src/core/widgets/rabbit_mood_widget.dart';
 import 'package:date_app/src/features/detail/detail_screen.dart';
 import 'package:date_app/src/models/date_log.dart';
 import 'package:date_app/src/state/date_log_state.dart';
@@ -151,8 +152,8 @@ class CalendarScreen extends ConsumerWidget {
                 children: [
                   _FilterChip(label: '전체', selected: tempMood == null, onTap: () => setModalState(() => tempMood = null)),
                   for (var m = 1; m <= 5; m++)
-                    _FilterChip(
-                      label: '${AppConstants.moodEmojis[m]} ${AppConstants.moodLabels[m]}',
+                    _MoodFilterChip(
+                      moodScore: m,
                       selected: tempMood == m,
                       onTap: () => setModalState(() => tempMood = m),
                     ),
@@ -265,6 +266,40 @@ class _EmptyState extends StatelessWidget {
   }
 }
 
+class _MoodFilterChip extends StatelessWidget {
+  const _MoodFilterChip({required this.moodScore, required this.selected, required this.onTap});
+  final int moodScore;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: selected ? AppConstants.pinkLight : AppConstants.surface,
+          borderRadius: BorderRadius.circular(AppConstants.radiusS),
+          border: Border.all(color: selected ? AppConstants.pink : Colors.transparent),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            RabbitMoodWidget(moodScore: moodScore, size: 20),
+            const SizedBox(width: 5),
+            Text(
+              AppConstants.moodLabels[moodScore],
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: selected ? AppConstants.pink : AppConstants.textSecondary),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _FilterChip extends StatelessWidget {
   const _FilterChip({required this.label, required this.selected, required this.onTap});
   final String label;
@@ -295,8 +330,8 @@ class _LogCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final moodColor = AppConstants.moodColors[log.moodScore.clamp(1, 5)];
-    final moodEmoji = AppConstants.moodEmojis[log.moodScore.clamp(1, 5)];
+    final moodScore = log.moodScore.clamp(1, 5);
+    final moodColor = AppConstants.moodColors[moodScore];
     final costStr = NumberFormat('#,###').format(log.totalCost.toInt());
 
     return GestureDetector(
@@ -318,7 +353,7 @@ class _LogCard extends ConsumerWidget {
                   : Container(
                       width: 56, height: 56,
                       color: moodColor,
-                      child: Center(child: Text(moodEmoji, style: const TextStyle(fontSize: 26))),
+                      child: Center(child: RabbitMoodWidget(moodScore: moodScore, size: 38)),
                     ),
             ),
             const SizedBox(width: 14),
