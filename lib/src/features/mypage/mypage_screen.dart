@@ -1,6 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:date_app/src/core/constants/app_constants.dart';
-import 'package:date_app/src/core/widgets/rabbit_mood_widget.dart';
+import 'package:date_app/src/core/widgets/mood_widget.dart';
 import 'package:date_app/src/features/auth/profile_setup_screen.dart';
 import 'package:date_app/src/models/user_profile.dart';
 import 'package:date_app/src/state/auth_state.dart';
@@ -276,6 +276,33 @@ class _ProfileHeroCard extends StatelessWidget {
                   ),
                 ],
 
+                // 이름 + 나이
+                if (profile?.name != null && profile!.name!.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Text.rich(
+                    TextSpan(
+                      children: [
+                        TextSpan(
+                          text: profile!.name!,
+                          style: const TextStyle(fontSize: 13, color: AppConstants.textSecondary, fontWeight: FontWeight.w500),
+                        ),
+                        if (profile!.birthdate != null)
+                          TextSpan(
+                            text: '  (${DateTime.now().year - profile!.birthdate!.year}세)',
+                            style: const TextStyle(fontSize: 13, color: AppConstants.textSecondary),
+                          ),
+                      ],
+                    ),
+                  ),
+                ] else if (profile?.birthdate != null) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    '(${DateTime.now().year - profile!.birthdate!.year}세)',
+                    style: const TextStyle(fontSize: 13, color: AppConstants.textSecondary),
+                  ),
+                ] else
+                  const SizedBox.shrink(),
+
                 // D+day 배지
                 if (ddays != null) ...[
                   const SizedBox(height: 16),
@@ -526,7 +553,7 @@ class _RabbitStatCard extends StatelessWidget {
                   decoration: BoxDecoration(color: Colors.white.withAlpha(160), borderRadius: BorderRadius.circular(AppConstants.radiusS)),
                   child: const Center(child: Text('💭', style: TextStyle(fontSize: 18))),
                 )
-              : RabbitMoodWidget(moodScore: moodScore, size: 36),
+              : MoodWidget(moodScore: moodScore, size: 36),
           const SizedBox(height: 12),
           Text(label, style: const TextStyle(fontSize: 11, color: AppConstants.textSecondary, fontWeight: FontWeight.w500)),
           const SizedBox(height: 3),

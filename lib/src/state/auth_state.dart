@@ -62,6 +62,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
           ? DateTime.tryParse(existing!['anniversary'] as String)
           : null,
       gender: existing?['gender'] as String?,
+      name: existing?['name'] as String?,
+      birthdate: existing?['birthdate'] != null
+          ? DateTime.tryParse(existing!['birthdate'] as String)
+          : null,
     );
 
     await _box.put('data', userProfile.toMap());
@@ -75,22 +79,28 @@ class AuthNotifier extends StateNotifier<AuthState> {
     required String coupleNickname,
     DateTime? anniversaryDate,
     String? gender,
+    String? name,
+    DateTime? birthdate,
   }) async {
     final updated = state.profile!.copyWith(
       coupleNickname: coupleNickname,
       anniversaryDate: anniversaryDate,
       gender: gender,
+      name: name,
+      birthdate: birthdate,
     );
 
-    // gender 컬럼이 아직 없을 수 있으므로 폴백 처리
+    // gender, name, birthdate 컬럼이 아직 없을 수 있으므로 폴백 처리
     try {
       await Supabase.instance.client.from('users').update({
         'couple_nickname': coupleNickname,
         'anniversary': anniversaryDate?.toIso8601String(),
         if (gender != null) 'gender': gender,
+        if (name != null) 'name': name,
+        if (birthdate != null) 'birthdate': birthdate.toIso8601String(),
       }).eq('kakao_id', updated.kakaoId);
     } catch (_) {
-      // gender 컬럼 미존재 시 해당 필드 제외하고 재시도
+      // 신규 컬럼 미존재 시 기본 필드만 재시도
       await Supabase.instance.client.from('users').update({
         'couple_nickname': coupleNickname,
         'anniversary': anniversaryDate?.toIso8601String(),

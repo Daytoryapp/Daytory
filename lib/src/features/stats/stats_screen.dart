@@ -1,4 +1,6 @@
 import 'package:date_app/src/core/constants/app_constants.dart';
+import 'package:date_app/src/core/widgets/mood_widget.dart';
+import 'package:date_app/src/state/auth_state.dart';
 import 'package:date_app/src/state/date_log_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,6 +12,7 @@ class StatsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final logs = ref.watch(dateLogControllerProvider);
+    final isMale = ref.watch(authStateProvider).profile?.gender == 'male';
     final totalCount = logs.length;
     final totalCost = logs.fold<double>(0, (sum, item) => sum + item.totalCost);
     final avgMood = logs.isEmpty
@@ -44,17 +47,20 @@ class StatsScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 10),
           _HeroCard(
-            emoji: AppConstants.moodEmojis[avgMood.round().clamp(1, 5)],
+            emoji: '💭',
             label: '평균 감정',
             value: avgMood == 0 ? '-' : '${avgMood.toStringAsFixed(1)}점  ${AppConstants.moodLabels[avgMood.round().clamp(1, 5)]}',
             wide: true,
+            leadingWidget: avgMood == 0
+                ? null
+                : MoodWidget(moodScore: avgMood.round().clamp(1, 5), size: 32),
           ),
 
           if (moodDist.isNotEmpty) ...[
             const SizedBox(height: 24),
             const _SectionHeader(title: '감정 분포'),
             const SizedBox(height: 12),
-            _MoodDistribution(distribution: moodDist, total: totalCount),
+            _MoodDistribution(distribution: moodDist, total: totalCount, isMale: isMale),
           ],
 
           if (sortedMonths.isNotEmpty) ...[
@@ -83,14 +89,17 @@ class _SectionHeader extends StatelessWidget {
 }
 
 class _HeroCard extends StatelessWidget {
-  const _HeroCard({required this.emoji, required this.label, required this.value, this.wide = false});
+  const _HeroCard({required this.emoji, required this.label, required this.value, this.wide = false, this.leadingWidget});
   final String emoji;
   final String label;
   final String value;
   final bool wide;
+  final Widget? leadingWidget;
 
   @override
   Widget build(BuildContext context) {
+    final leading = leadingWidget ?? Text(emoji, style: const TextStyle(fontSize: 28));
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -100,7 +109,7 @@ class _HeroCard extends StatelessWidget {
       child: wide
           ? Row(
               children: [
-                Text(emoji, style: const TextStyle(fontSize: 28)),
+                leading,
                 const SizedBox(width: 14),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -115,7 +124,7 @@ class _HeroCard extends StatelessWidget {
           : Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(emoji, style: const TextStyle(fontSize: 28)),
+                leading,
                 const SizedBox(height: 8),
                 Text(label, style: const TextStyle(fontSize: 12, color: AppConstants.textSecondary, fontWeight: FontWeight.w500)),
                 const SizedBox(height: 2),
@@ -127,9 +136,10 @@ class _HeroCard extends StatelessWidget {
 }
 
 class _MoodDistribution extends StatelessWidget {
-  const _MoodDistribution({required this.distribution, required this.total});
+  const _MoodDistribution({required this.distribution, required this.total, required this.isMale});
   final Map<int, int> distribution;
   final int total;
+  final bool isMale;
 
   @override
   Widget build(BuildContext context) {
@@ -142,7 +152,7 @@ class _MoodDistribution extends StatelessWidget {
           padding: const EdgeInsets.only(bottom: 8),
           child: Row(
             children: [
-              Text(AppConstants.moodEmojis[mood], style: const TextStyle(fontSize: 18)),
+              MoodWidget(moodScore: mood, size: 24),
               const SizedBox(width: 8),
               Expanded(
                 child: ClipRRect(
