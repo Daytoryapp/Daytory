@@ -7,6 +7,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:uuid/uuid.dart';
 
 class AddLogScreen extends ConsumerStatefulWidget {
   const AddLogScreen({super.key});
@@ -26,6 +28,7 @@ class _AddLogScreenState extends ConsumerState<AddLogScreen> {
   DateTime _selectedDate = DateTime.now();
   int _mood = 4;
   List<XFile> _images = [];
+  bool _uploading = false;
 
   @override
   void dispose() {
@@ -130,12 +133,42 @@ class _AddLogScreenState extends ConsumerState<AddLogScreen> {
               _MoodSelector(selected: _mood, onChanged: (m) => setState(() => _mood = m)),
               const SizedBox(height: 32),
 
-              FilledButton(onPressed: _submit, child: const Text('기록 저장하기')),
+              FilledButton(
+                onPressed: _uploading ? null : _submit,
+                child: _uploading
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Text('기록 저장하기'),
+              ),
             ],
           ),
         ),
       ),
     );
+  }
+
+  Future<List<String>> _uploadPhotos() async {
+    if (_images.isEmpty) return [];
+    final client = Supabase.instance.client;
+    const uuid = Uuid();
+    final urls = <String>[];
+    for (final image in _images) {
+      try {
+        final bytes = await image.readAsBytes();
+        final ext = image.name.contains('.') ? image.name.split('.').last.toLowerCase() : 'jpg';
+        final path = '${DateTime.now().millisecondsSinceEpoch}_${uuid.v4()}.$ext';
+        await client.storage.from('photos').uploadBinary(
+          path,
+          bytes,
+          fileOptions: FileOptions(contentType: 'image/$ext'),
+        );
+        urls.add(client.storage.from('photos').getPublicUrl(path));
+      } catch (_) {}
+    }
+    return urls;
   }
 
   Future<void> _submit() async {
@@ -144,6 +177,10 @@ class _AddLogScreenState extends ConsumerState<AddLogScreen> {
       return;
     }
     if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _uploading = true);
+
+    final photoUrls = await _uploadPhotos();
 
     final tags = _tagsController.text
         .split(',')
@@ -162,10 +199,11 @@ class _AddLogScreenState extends ConsumerState<AddLogScreen> {
           totalCost: cost,
           place: _selectedPlace!,
           tags: tags,
-          photos: _images.map((f) => f.path).toList(),
+          photos: photoUrls,
         );
 
     if (!mounted) return;
+    setState(() => _uploading = false);
     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('기록이 저장되었습니다')));
     _reset();
   }
