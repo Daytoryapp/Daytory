@@ -1,4 +1,5 @@
 import 'package:date_app/src/core/constants/app_constants.dart';
+import 'package:date_app/src/core/widgets/rabbit_mood_widget.dart';
 import 'package:date_app/src/features/add/widgets/image_picker_row.dart';
 import 'package:date_app/src/features/add/widgets/place_picker.dart';
 import 'package:date_app/src/models/date_place.dart';
@@ -339,7 +340,7 @@ class _MoodSelector extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(AppConstants.moodEmojis[mood], style: TextStyle(fontSize: isSelected ? 28 : 22)),
+                RabbitMoodWidget(moodScore: mood, size: isSelected ? 34 : 28),
                 const SizedBox(height: 4),
                 Text(
                   AppConstants.moodLabels[mood],

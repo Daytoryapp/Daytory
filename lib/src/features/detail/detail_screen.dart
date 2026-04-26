@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:date_app/src/core/constants/app_constants.dart';
+import 'package:date_app/src/core/widgets/rabbit_mood_widget.dart';
 import 'package:date_app/src/models/date_log.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -11,8 +12,8 @@ class DetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final moodEmoji = AppConstants.moodEmojis[log.moodScore.clamp(1, 5)];
-    final moodLabel = AppConstants.moodLabels[log.moodScore.clamp(1, 5)];
+    final moodScore = log.moodScore.clamp(1, 5);
+    final moodLabel = AppConstants.moodLabels[moodScore];
     final moodColor = AppConstants.moodColors[log.moodScore.clamp(1, 5)];
     final costStr = NumberFormat('#,###').format(log.totalCost.toInt());
 
@@ -55,7 +56,7 @@ class DetailScreen extends StatelessWidget {
             ),
             child: Row(
               children: [
-                Text(moodEmoji, style: const TextStyle(fontSize: 48)),
+                RabbitMoodWidget(moodScore: moodScore, size: 56),
                 const SizedBox(width: 16),
                 Expanded(
                   child: Column(
@@ -63,7 +64,7 @@ class DetailScreen extends StatelessWidget {
                     children: [
                       Text(log.title ?? log.placeName, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: AppConstants.textPrimary, letterSpacing: -0.3)),
                       const SizedBox(height: 4),
-                      Text('$moodLabel · $moodEmoji', style: const TextStyle(fontSize: 14, color: AppConstants.textSecondary)),
+                      Text(moodLabel, style: const TextStyle(fontSize: 14, color: AppConstants.textSecondary)),
                     ],
                   ),
                 ),
