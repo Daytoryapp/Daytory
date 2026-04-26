@@ -59,6 +59,7 @@ class MypageScreen extends ConsumerWidget {
                 const SizedBox(height: 12),
                 _PartnerCard(
                   userImageUrl: profile?.kakaoProfileImageUrl,
+                  avatarEmoji: profile?.avatarEmoji ?? '🐰',
                   onInvite: () => _showComingSoon(context, '초대 코드 기능은 준비 중이에요'),
                 ),
               ],
@@ -213,6 +214,7 @@ class _ProfileHeroCard extends StatelessWidget {
     final ddays = profile?.anniversaryDate != null
         ? DateTime.now().difference(profile!.anniversaryDate!).inDays
         : null;
+    final avatarEmoji = profile?.avatarEmoji ?? '🐰';
 
     return Container(
       decoration: BoxDecoration(
@@ -243,10 +245,10 @@ class _ProfileHeroCard extends StatelessWidget {
                         ? CachedNetworkImage(
                             imageUrl: profile!.kakaoProfileImageUrl!,
                             fit: BoxFit.cover,
-                            placeholder: (_, __) => _DefaultAvatar(),
-                            errorWidget: (_, __, ___) => _DefaultAvatar(),
+                            placeholder: (_, __) => _DefaultAvatar(emoji: avatarEmoji),
+                            errorWidget: (_, __, ___) => _DefaultAvatar(emoji: avatarEmoji),
                           )
-                        : _DefaultAvatar(),
+                        : _DefaultAvatar(emoji: avatarEmoji),
                   ),
                 ),
                 const SizedBox(height: 14),
@@ -314,11 +316,14 @@ class _ProfileHeroCard extends StatelessWidget {
 }
 
 class _DefaultAvatar extends StatelessWidget {
+  const _DefaultAvatar({this.emoji = '🐰'});
+  final String emoji;
+
   @override
   Widget build(BuildContext context) {
     return Container(
       color: AppConstants.pinkLight,
-      child: const Center(child: Text('🐰', style: TextStyle(fontSize: 40))),
+      child: Center(child: Text(emoji, style: const TextStyle(fontSize: 40))),
     );
   }
 }
@@ -374,9 +379,10 @@ class _AnniversaryBadge extends StatelessWidget {
 
 // ── 파트너 카드 ─────────────────────────────────────────────────────────────
 class _PartnerCard extends StatelessWidget {
-  const _PartnerCard({required this.onInvite, this.userImageUrl});
+  const _PartnerCard({required this.onInvite, this.userImageUrl, this.avatarEmoji = '🐰'});
   final VoidCallback onInvite;
   final String? userImageUrl;
+  final String avatarEmoji;
 
   @override
   Widget build(BuildContext context) {
@@ -402,8 +408,8 @@ class _PartnerCard extends StatelessWidget {
                 ),
                 child: ClipOval(
                   child: userImageUrl != null
-                      ? CachedNetworkImage(imageUrl: userImageUrl!, fit: BoxFit.cover, errorWidget: (_, __, ___) => const Center(child: Text('🐰', style: TextStyle(fontSize: 28))))
-                      : const Center(child: Text('🐰', style: TextStyle(fontSize: 28))),
+                      ? CachedNetworkImage(imageUrl: userImageUrl!, fit: BoxFit.cover, errorWidget: (_, __, ___) => Center(child: Text(avatarEmoji, style: const TextStyle(fontSize: 28))))
+                      : Center(child: Text(avatarEmoji, style: const TextStyle(fontSize: 28))),
                 ),
               ),
 

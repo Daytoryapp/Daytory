@@ -61,6 +61,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       anniversaryDate: existing?['anniversary'] != null
           ? DateTime.tryParse(existing!['anniversary'] as String)
           : null,
+      gender: existing?['gender'] as String?,
     );
 
     await _box.put('data', userProfile.toMap());
@@ -73,15 +74,18 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<void> completeProfile({
     required String coupleNickname,
     DateTime? anniversaryDate,
+    String? gender,
   }) async {
     final updated = state.profile!.copyWith(
       coupleNickname: coupleNickname,
       anniversaryDate: anniversaryDate,
+      gender: gender,
     );
 
     await Supabase.instance.client.from('users').update({
       'couple_nickname': coupleNickname,
       'anniversary': anniversaryDate?.toIso8601String(),
+      if (gender != null) 'gender': gender,
     }).eq('kakao_id', updated.kakaoId);
 
     await _box.put('data', updated.toMap());
