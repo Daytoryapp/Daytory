@@ -1,11 +1,12 @@
-# ─── Environment ─────────────────────────────────────────────────────────────
+# ─── 환경변수 (키/시크릿) ─────────────────────────────────────────────────────
 .env
 .env.local
 .env.*.local
 
-# ─── Flutter / Dart ───────────────────────────────────────────────────────────
+# ─── Flutter / Dart 자동생성 ──────────────────────────────────────────────────
 .dart_tool/
 .flutter-plugins
+.flutter-plugins-dependencies
 .flutter-plugins-dependencies
 .packages
 build/
@@ -19,8 +20,11 @@ ios/Flutter/Flutter.framework
 ios/Flutter/Flutter.podspec
 ios/Flutter/Generated.xcconfig
 ios/Flutter/app.flx
+ios/Flutter/flutter_export_environment.sh
+ios/Flutter/ephemeral/
 ios/Runner/GeneratedPluginRegistrant.*
 ios/Runner.xcworkspace/xcuserdata/
+ios/Runner.xcodeproj/xcuserdata/
 
 # ─── Android ──────────────────────────────────────────────────────────────────
 android/.gradle/
@@ -35,6 +39,7 @@ android/key.properties
 # ─── macOS ────────────────────────────────────────────────────────────────────
 macos/Pods/
 macos/Flutter/GeneratedPluginRegistrant.swift
+macos/Flutter/ephemeral/
 
 # ─── Web ──────────────────────────────────────────────────────────────────────
 lib/generated_plugin_registrant.dart
@@ -43,6 +48,8 @@ lib/generated_plugin_registrant.dart
 .idea/
 *.iml
 .vscode/settings.json
+*.swp
+*.swo
 
 # ─── OS ───────────────────────────────────────────────────────────────────────
 .DS_Store
@@ -50,16 +57,16 @@ lib/generated_plugin_registrant.dart
 Thumbs.db
 ehthumbs.db
 
-# ─── Logs ─────────────────────────────────────────────────────────────────────
+# ─── 로그 ─────────────────────────────────────────────────────────────────────
 *.log
 logs/
 
 # ─── Hive 런타임 데이터 ────────────────────────────────────────────────────────
 *.hive
 
-# ─── Test artifacts ───────────────────────────────────────────────────────────
+# ─── 테스트 산출물 ──────────────────────────────────────────────────────────────
 coverage/
 .test_hive*/
 
-# ─── Claude Code (로컬 설정만 제외, agents/는 추적) ──────────────────────────
+# ─── Claude Code (로컬 설정만 제외) ───────────────────────────────────────────
 .claude/settings.local.json
