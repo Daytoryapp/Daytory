@@ -19,6 +19,16 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
   bool _loading = false;
 
   @override
+  void initState() {
+    super.initState();
+    final profile = ref.read(authStateProvider).profile;
+    if (profile?.coupleNickname != null) {
+      _nicknameController.text = profile!.coupleNickname!;
+    }
+    _anniversaryDate = profile?.anniversaryDate;
+  }
+
+  @override
   void dispose() {
     _nicknameController.dispose();
     super.dispose();

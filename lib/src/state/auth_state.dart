@@ -36,21 +36,38 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   Future<void> onKakaoLoginSuccess(kakao.User kakaoUser) async {
-    final profile = kakaoUser.kakaoAccount?.profile;
-    final partial = UserProfile(
-      kakaoId: kakaoUser.id.toString(),
-      kakaoNickname: profile?.nickname ?? '사용자',
-      kakaoProfileImageUrl: profile?.profileImageUrl,
-    );
+    final kProfile = kakaoUser.kakaoAccount?.profile;
+    final kakaoId = kakaoUser.id.toString();
 
+    // Supabase upsert (기본 정보만)
     await Supabase.instance.client.from('users').upsert({
-      'kakao_id': partial.kakaoId,
-      'nickname': partial.kakaoNickname,
-      'profile_image': partial.kakaoProfileImageUrl,
+      'kakao_id': kakaoId,
+      'nickname': kProfile?.nickname ?? '사용자',
+      'profile_image': kProfile?.profileImageUrl,
     }, onConflict: 'kakao_id');
 
-    await _box.put('data', partial.toMap());
-    state = AuthState(status: AuthStatus.needsProfile, profile: partial);
+    // Supabase에서 기존 프로필 조회 (couple_nickname, anniversary 포함)
+    final existing = await Supabase.instance.client
+        .from('users')
+        .select()
+        .eq('kakao_id', kakaoId)
+        .maybeSingle();
+
+    final userProfile = UserProfile(
+      kakaoId: kakaoId,
+      kakaoNickname: kProfile?.nickname ?? '사용자',
+      kakaoProfileImageUrl: kProfile?.profileImageUrl,
+      coupleNickname: existing?['couple_nickname'] as String?,
+      anniversaryDate: existing?['anniversary'] != null
+          ? DateTime.tryParse(existing!['anniversary'] as String)
+          : null,
+    );
+
+    await _box.put('data', userProfile.toMap());
+    state = AuthState(
+      status: userProfile.isComplete ? AuthStatus.ready : AuthStatus.needsProfile,
+      profile: userProfile,
+    );
   }
 
   Future<void> completeProfile({
