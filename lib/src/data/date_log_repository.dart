@@ -2,6 +2,7 @@ import 'package:date_app/src/models/date_log.dart';
 import 'package:date_app/src/models/date_place.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
 final dateLogRepositoryProvider = Provider<DateLogRepository>((ref) {
@@ -9,67 +10,28 @@ final dateLogRepositoryProvider = Provider<DateLogRepository>((ref) {
 });
 
 class DateLogRepository {
-  static const _boxName = 'date_logs';
+  final _client = Supabase.instance.client;
   final _uuid = const Uuid();
 
-  Box<Map> get _box => Hive.box<Map>(_boxName);
-
-  static Future<void> init() async {
-    await Hive.openBox<Map>(_boxName);
+  String? get _kakaoId {
+    final box = Hive.box<Map>('user_profile');
+    final raw = box.get('data');
+    if (raw == null) return null;
+    return raw['kakaoId'] as String?;
   }
 
-  List<DateLog> getAll() {
-    final logs = _box.values
-        .map((v) => DateLog.fromMap(Map<String, dynamic>.from(v)))
-        .toList();
-    logs.sort((a, b) => b.startedAt.compareTo(a.startedAt));
-
-    // 최초 실행 시 시드 데이터 주입
-    if (logs.isEmpty) {
-      _seed();
-      return getAll();
-    }
-    return logs;
+  Future<List<DateLog>> getAll() async {
+    final id = _kakaoId;
+    if (id == null) return [];
+    final rows = await _client
+        .from('date_logs')
+        .select()
+        .eq('kakao_id', id)
+        .order('started_at', ascending: false);
+    return rows.map((r) => DateLog.fromSupabase(r)).toList();
   }
 
-  void _seed() {
-    final now = DateTime.now();
-    final places = [
-      const DatePlace(sido: '서울특별시', sigungu: '마포구', latitude: 37.5638, longitude: 126.9085),
-      const DatePlace(sido: '서울특별시', sigungu: '마포구', latitude: 37.5572, longitude: 126.9245),
-    ];
-    final seeds = [
-      DateLog(
-        id: 'seed-1',
-        title: '주말 브런치 데이트',
-        startedAt: now.subtract(const Duration(days: 2)),
-        endedAt: now.subtract(const Duration(days: 2)).add(const Duration(hours: 3)),
-        memo: '한강 보면서 브런치 먹고 카페까지 다녀왔다.',
-        moodScore: 5,
-        totalCost: 48000,
-        place: places[0],
-        tags: const ['브런치', '산책'],
-        photos: const [],
-      ),
-      DateLog(
-        id: 'seed-2',
-        title: '저녁 영화 데이트',
-        startedAt: now.subtract(const Duration(days: 8)),
-        endedAt: now.subtract(const Duration(days: 8)).add(const Duration(hours: 4)),
-        memo: '영화 보고 근처 이자카야에서 늦은 저녁.',
-        moodScore: 4,
-        totalCost: 72000,
-        place: places[1],
-        tags: const ['영화', '저녁'],
-        photos: const [],
-      ),
-    ];
-    for (final log in seeds) {
-      _box.put(log.id, log.toMap());
-    }
-  }
-
-  DateLog add({
+  Future<DateLog> add({
     required DateTime startedAt,
     required DateTime endedAt,
     required String memo,
@@ -79,7 +41,8 @@ class DateLogRepository {
     required List<String> tags,
     required List<String> photos,
     String? title,
-  }) {
+  }) async {
+    final id = _kakaoId ?? 'anonymous';
     final log = DateLog(
       id: _uuid.v4(),
       title: title,
@@ -92,15 +55,19 @@ class DateLogRepository {
       tags: tags,
       photos: photos,
     );
-    _box.put(log.id, log.toMap());
+    await _client.from('date_logs').insert(log.toSupabase(id));
     return log;
   }
 
-  void update(DateLog updatedLog) {
-    _box.put(updatedLog.id, updatedLog.toMap());
+  Future<void> update(DateLog log) async {
+    final id = _kakaoId ?? 'anonymous';
+    await _client
+        .from('date_logs')
+        .update(log.toSupabase(id))
+        .eq('id', log.id);
   }
 
-  void delete(String id) {
-    _box.delete(id);
+  Future<void> delete(String id) async {
+    await _client.from('date_logs').delete().eq('id', id);
   }
 }

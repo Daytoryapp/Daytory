@@ -138,7 +138,7 @@ class _AddLogScreenState extends ConsumerState<AddLogScreen> {
     );
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     if (_selectedPlace == null) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('장소를 선택해 주세요')));
       return;
@@ -153,7 +153,7 @@ class _AddLogScreenState extends ConsumerState<AddLogScreen> {
 
     final cost = double.tryParse(_costController.text) ?? 0;
 
-    ref.read(dateLogControllerProvider.notifier).add(
+    await ref.read(dateLogControllerProvider.notifier).add(
           title: _titleController.text.isEmpty ? null : _titleController.text.trim(),
           startedAt: _selectedDate,
           endedAt: _selectedDate.add(const Duration(hours: 2)),
@@ -165,7 +165,8 @@ class _AddLogScreenState extends ConsumerState<AddLogScreen> {
           photos: _images.map((f) => f.path).toList(),
         );
 
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('💝  기록이 저장되었습니다')));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('기록이 저장되었습니다')));
     _reset();
   }
 

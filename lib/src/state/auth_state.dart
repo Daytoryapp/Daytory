@@ -1,7 +1,8 @@
 import 'package:date_app/src/models/user_profile.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
+import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart' as kakao;
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 enum AuthStatus { loading, loggedOut, needsProfile, ready }
 
@@ -34,13 +35,20 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
-  Future<void> onKakaoLoginSuccess(User kakaoUser) async {
+  Future<void> onKakaoLoginSuccess(kakao.User kakaoUser) async {
     final profile = kakaoUser.kakaoAccount?.profile;
     final partial = UserProfile(
-      kakaoId: '${kakaoUser.id}',
+      kakaoId: kakaoUser.id.toString(),
       kakaoNickname: profile?.nickname ?? '사용자',
       kakaoProfileImageUrl: profile?.profileImageUrl,
     );
+
+    await Supabase.instance.client.from('users').upsert({
+      'kakao_id': partial.kakaoId,
+      'nickname': partial.kakaoNickname,
+      'profile_image': partial.kakaoProfileImageUrl,
+    }, onConflict: 'kakao_id');
+
     await _box.put('data', partial.toMap());
     state = AuthState(status: AuthStatus.needsProfile, profile: partial);
   }
@@ -53,13 +61,19 @@ class AuthNotifier extends StateNotifier<AuthState> {
       coupleNickname: coupleNickname,
       anniversaryDate: anniversaryDate,
     );
+
+    await Supabase.instance.client.from('users').update({
+      'couple_nickname': coupleNickname,
+      'anniversary': anniversaryDate?.toIso8601String(),
+    }).eq('kakao_id', updated.kakaoId);
+
     await _box.put('data', updated.toMap());
     state = AuthState(status: AuthStatus.ready, profile: updated);
   }
 
   Future<void> logout() async {
     try {
-      await UserApi.instance.logout();
+      await kakao.UserApi.instance.logout();
     } catch (_) {}
     await _box.delete('data');
     state = const AuthState(status: AuthStatus.loggedOut);

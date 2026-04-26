@@ -61,6 +61,41 @@ class DateLog {
         photos: List<String>.from(map['photos'] as List),
       );
 
+  factory DateLog.fromSupabase(Map<String, dynamic> row) => DateLog(
+        id: row['id'] as String,
+        title: row['title'] as String?,
+        startedAt: DateTime.parse(row['started_at'] as String).toLocal(),
+        endedAt: DateTime.parse(row['ended_at'] as String).toLocal(),
+        memo: row['memo'] as String? ?? '',
+        moodScore: row['mood_score'] as int,
+        totalCost: (row['total_cost'] as num).toDouble(),
+        place: DatePlace(
+          sido: row['sido'] as String? ?? '',
+          sigungu: row['sigungu'] as String? ?? '',
+          latitude: (row['latitude'] as num?)?.toDouble() ?? 0,
+          longitude: (row['longitude'] as num?)?.toDouble() ?? 0,
+        ),
+        tags: List<String>.from((row['tags'] as List?) ?? []),
+        photos: List<String>.from((row['photo_urls'] as List?) ?? []),
+      );
+
+  Map<String, dynamic> toSupabase(String kakaoId) => {
+        'id': id,
+        'kakao_id': kakaoId,
+        'title': title,
+        'started_at': startedAt.toUtc().toIso8601String(),
+        'ended_at': endedAt.toUtc().toIso8601String(),
+        'memo': memo,
+        'mood_score': moodScore,
+        'total_cost': totalCost,
+        'sido': place.sido,
+        'sigungu': place.sigungu,
+        'latitude': place.latitude,
+        'longitude': place.longitude,
+        'tags': tags,
+        'photo_urls': photos,
+      };
+
   DateLog copyWith({
     String? id,
     String? title,

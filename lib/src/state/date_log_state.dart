@@ -17,11 +17,12 @@ class DateLogController extends StateNotifier<List<DateLog>> {
   DateLogController(this._repository) : super([]);
   final DateLogRepository _repository;
 
-  void load() {
-    state = _repository.getAll();
+  Future<void> load() async {
+    final logs = await _repository.getAll();
+    state = logs;
   }
 
-  void add({
+  Future<void> add({
     String? title,
     required DateTime startedAt,
     required DateTime endedAt,
@@ -31,8 +32,8 @@ class DateLogController extends StateNotifier<List<DateLog>> {
     required DatePlace place,
     required List<String> tags,
     required List<String> photos,
-  }) {
-    _repository.add(
+  }) async {
+    await _repository.add(
       title: title,
       startedAt: startedAt,
       endedAt: endedAt,
@@ -43,16 +44,16 @@ class DateLogController extends StateNotifier<List<DateLog>> {
       tags: tags,
       photos: photos,
     );
-    load();
+    await load();
   }
 
-  void delete(String id) {
-    _repository.delete(id);
-    load();
+  Future<void> delete(String id) async {
+    await _repository.delete(id);
+    await load();
   }
 
-  void update(DateLog updatedLog) {
-    _repository.update(updatedLog);
-    load();
+  Future<void> update(DateLog updatedLog) async {
+    await _repository.update(updatedLog);
+    await load();
   }
 }
