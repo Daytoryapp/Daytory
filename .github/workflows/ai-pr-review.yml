@@ -1,8 +1,9 @@
 name: AI PR Review
 
 on:
-  pull_request:
-    types: [opened, synchronize, reopened]
+  issue_comment:
+    types: [created]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -11,6 +12,13 @@ permissions:
 
 jobs:
   ai-review:
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (
+        github.event.issue.pull_request &&
+        contains(github.event.comment.body, '/ai-review')
+      )
+
     runs-on: ubuntu-latest
 
     steps:
@@ -20,9 +28,27 @@ jobs:
       - name: Install Python dependencies
         run: pip install openai
 
+      - name: Get PR number
+        id: pr
+        run: |
+          if [ "${{ github.event_name }}" = "issue_comment" ]; then
+            echo "number=${{ github.event.issue.number }}" >> $GITHUB_OUTPUT
+          else
+            echo "number=${{ github.event.pull_request.number }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Get PR info
+        id: pr_info
+        run: |
+          gh pr view ${{ steps.pr.outputs.number }} \
+            --json title,body \
+            --jq '"title=" + .title + "\nbody=" + (.body // "")' > pr_info.txt
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Get PR diff
         run: |
-          gh pr diff ${{ github.event.pull_request.number }} > pr_diff.txt
+          gh pr diff ${{ steps.pr.outputs.number }} > pr_diff.txt
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -30,8 +56,8 @@ jobs:
         run: python .github/scripts/ai_pr_review.py
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          PR_TITLE: ${{ github.event.pull_request.title }}
-          PR_BODY: ${{ github.event.pull_request.body }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.issue.title }}
+          PR_BODY: ${{ github.event.comment.body }}
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
           REPO: ${{ github.repository }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

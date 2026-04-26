@@ -43,8 +43,24 @@ class CalendarScreen extends ConsumerWidget {
               eventLoader: (day) => logs.where((log) => isSameDay(log.startedAt, day)).toList(),
               onDaySelected: (selected, _) => ref.read(selectedDayProvider.notifier).state = selected,
               calendarBuilders: CalendarBuilders(
+                defaultBuilder: (context, day, _) {
+                  final path = _dayPhotoPath(day, logs);
+                  if (path == null) return null;
+                  return _CalendarPhotoCell(day: day, photoPath: path, isSelected: false, isToday: false);
+                },
+                selectedBuilder: (context, day, _) {
+                  final path = _dayPhotoPath(day, logs);
+                  if (path == null) return null;
+                  return _CalendarPhotoCell(day: day, photoPath: path, isSelected: true, isToday: false);
+                },
+                todayBuilder: (context, day, _) {
+                  final path = _dayPhotoPath(day, logs);
+                  if (path == null) return null;
+                  return _CalendarPhotoCell(day: day, photoPath: path, isSelected: false, isToday: true);
+                },
                 markerBuilder: (context, day, events) {
                   if (events.isEmpty) return const SizedBox.shrink();
+                  if (events.any((e) => e.photos.isNotEmpty)) return const SizedBox.shrink();
                   final moods = events.map((e) => e.moodScore).toSet().toList()
                     ..sort();
                   return Positioned(
@@ -60,13 +76,13 @@ class CalendarScreen extends ConsumerWidget {
                   );
                 },
               ),
-              calendarStyle: CalendarStyle(
+              calendarStyle: const CalendarStyle(
                 todayDecoration: BoxDecoration(color: AppConstants.pinkLight, shape: BoxShape.circle),
-                todayTextStyle: const TextStyle(color: AppConstants.pink, fontWeight: FontWeight.w700),
-                selectedDecoration: const BoxDecoration(color: AppConstants.pink, shape: BoxShape.circle),
-                selectedTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
-                outsideTextStyle: const TextStyle(color: AppConstants.border),
-                weekendTextStyle: const TextStyle(color: AppConstants.pink),
+                todayTextStyle: TextStyle(color: AppConstants.pink, fontWeight: FontWeight.w700),
+                selectedDecoration: BoxDecoration(color: AppConstants.pink, shape: BoxShape.circle),
+                selectedTextStyle: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+                outsideTextStyle: TextStyle(color: AppConstants.border),
+                weekendTextStyle: TextStyle(color: AppConstants.pink),
               ),
               headerStyle: const HeaderStyle(
                 formatButtonVisible: false,
@@ -382,5 +398,103 @@ class _TagBadge extends StatelessWidget {
       decoration: BoxDecoration(color: AppConstants.surface, borderRadius: BorderRadius.circular(4)),
       child: Text(tag, style: const TextStyle(fontSize: 11, color: AppConstants.textSecondary, fontWeight: FontWeight.w500)),
     );
+  }
+}
+
+String? _dayPhotoPath(DateTime day, List<DateLog> logs) {
+  for (final log in logs) {
+    if (isSameDay(log.startedAt, day) && log.photos.isNotEmpty) {
+      return log.photos.first;
+    }
+  }
+  return null;
+}
+
+class _CalendarPhotoCell extends StatefulWidget {
+  const _CalendarPhotoCell({
+    required this.day,
+    required this.photoPath,
+    required this.isSelected,
+    required this.isToday,
+  });
+
+  final DateTime day;
+  final String photoPath;
+  final bool isSelected;
+  final bool isToday;
+
+  @override
+  State<_CalendarPhotoCell> createState() => _CalendarPhotoCellState();
+}
+
+class _CalendarPhotoCellState extends State<_CalendarPhotoCell> {
+  Uint8List? _bytes;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadImage();
+  }
+
+  Future<void> _loadImage() async {
+    if (kIsWeb || widget.photoPath.startsWith('http') || widget.photoPath.startsWith('blob:')) return;
+    try {
+      final bytes = await File(widget.photoPath).readAsBytes();
+      if (mounted) setState(() => _bytes = bytes);
+    } catch (_) {}
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final borderColor = widget.isSelected
+        ? AppConstants.pink
+        : widget.isToday
+            ? AppConstants.pink
+            : Colors.transparent;
+    final borderWidth = widget.isSelected || widget.isToday ? 2.0 : 0.0;
+
+    return Center(
+      child: Container(
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(color: borderColor, width: borderWidth),
+        ),
+        child: ClipOval(
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              _buildImage(),
+              ColoredBox(color: Colors.black.withAlpha(45)),
+              Center(
+                child: Text(
+                  '${widget.day.day}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: widget.isSelected ? FontWeight.w700 : FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildImage() {
+    if (widget.photoPath.startsWith('http') || widget.photoPath.startsWith('blob:')) {
+      return Image.network(
+        widget.photoPath,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => Container(color: AppConstants.pinkLight),
+      );
+    }
+    if (_bytes != null) {
+      return Image.memory(_bytes!, fit: BoxFit.cover);
+    }
+    return Container(color: AppConstants.pinkLight);
   }
 }

@@ -46,7 +46,7 @@ class AppTheme {
           color: _white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
-            side: BorderSide(color: _border),
+            side: const BorderSide(color: _border),
           ),
           margin: EdgeInsets.zero,
         ),
