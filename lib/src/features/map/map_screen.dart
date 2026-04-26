@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:date_app/src/core/constants/app_constants.dart';
-import 'package:date_app/src/core/widgets/rabbit_mood_widget.dart';
+import 'package:date_app/src/core/widgets/mood_widget.dart';
 import 'package:date_app/src/features/detail/detail_screen.dart';
 import 'package:date_app/src/models/date_log.dart';
 import 'package:date_app/src/state/date_log_state.dart';
@@ -199,16 +199,16 @@ class _MapMarkerState extends State<_MapMarker> {
   }
 }
 
-class _RabbitMarkerContent extends StatelessWidget {
+class _RabbitMarkerContent extends ConsumerWidget {
   const _RabbitMarkerContent({required this.moodScore, required this.moodColor});
   final int moodScore;
   final Color moodColor;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Container(
       color: moodColor.withAlpha(60),
-      child: Center(child: RabbitMoodWidget(moodScore: moodScore, size: 32)),
+      child: Center(child: MoodWidget(moodScore: moodScore, size: 32)),
     );
   }
 }
@@ -329,7 +329,7 @@ class _MapLogPreviewState extends ConsumerState<_MapLogPreview> {
                       : Container(
                           width: 64, height: 64,
                           color: moodColor.withAlpha(80),
-                          child: Center(child: RabbitMoodWidget(moodScore: moodScore, size: 44)),
+                          child: Center(child: MoodWidget(moodScore: moodScore, size: 44)),
                         ),
                 ),
                 const SizedBox(width: 14),
@@ -458,7 +458,7 @@ class _PreviewThumbState extends State<_PreviewThumb> {
     return Container(
       width: 64, height: 64,
       color: widget.moodColor.withAlpha(80),
-      child: Center(child: RabbitMoodWidget(moodScore: widget.moodScore, size: 44)),
+      child: Center(child: MoodWidget(moodScore: widget.moodScore, size: 44)),
     );
   }
 }

@@ -1,5 +1,5 @@
 import 'package:date_app/src/core/constants/app_constants.dart';
-import 'package:date_app/src/core/widgets/rabbit_mood_widget.dart';
+import 'package:date_app/src/core/widgets/mood_widget.dart';
 import 'package:date_app/src/features/add/widgets/image_picker_row.dart';
 import 'package:date_app/src/features/add/widgets/place_picker.dart';
 import 'package:date_app/src/models/date_place.dart';
@@ -23,12 +23,12 @@ class _AddLogScreenState extends ConsumerState<AddLogScreen> {
   final _titleController = TextEditingController();
   final _memoController = TextEditingController();
   final _costController = TextEditingController();
-  final _tagsController = TextEditingController();
 
   DatePlace? _selectedPlace;
   DateTime _selectedDate = DateTime.now();
   int _mood = 4;
   List<XFile> _images = [];
+  final Set<String> _selectedTags = {};
   bool _uploading = false;
 
   @override
@@ -36,7 +36,6 @@ class _AddLogScreenState extends ConsumerState<AddLogScreen> {
     _titleController.dispose();
     _memoController.dispose();
     _costController.dispose();
-    _tagsController.dispose();
     super.dispose();
   }
 
@@ -121,10 +120,14 @@ class _AddLogScreenState extends ConsumerState<AddLogScreen> {
               const SizedBox(height: 14),
 
               // 태그
-              const _SectionLabel(label: '태그'),
-              TextFormField(
-                controller: _tagsController,
-                decoration: const InputDecoration(hintText: '카페, 영화, 드라이브 (쉼표 구분)'),
+              const _SectionLabel(label: '태그 (복수 선택 가능)'),
+              _TagSelector(
+                selected: _selectedTags,
+                onChanged: (tags) => setState(() {
+                  _selectedTags
+                    ..clear()
+                    ..addAll(tags);
+                }),
               ),
               const SizedBox(height: 24),
 
@@ -192,11 +195,7 @@ class _AddLogScreenState extends ConsumerState<AddLogScreen> {
 
     final photoUrls = await _uploadPhotos();
 
-    final tags = _tagsController.text
-        .split(',')
-        .map((t) => t.trim())
-        .where((t) => t.isNotEmpty)
-        .toList();
+    final tags = _selectedTags.toList();
 
     final cost = double.tryParse(_costController.text) ?? 0;
 
@@ -222,12 +221,12 @@ class _AddLogScreenState extends ConsumerState<AddLogScreen> {
     _titleController.clear();
     _memoController.clear();
     _costController.clear();
-    _tagsController.clear();
     setState(() {
       _selectedPlace = null;
       _selectedDate = DateTime.now();
       _mood = 4;
       _images = [];
+      _selectedTags.clear();
     });
   }
 }
@@ -313,6 +312,63 @@ class _DateField extends StatelessWidget {
   }
 }
 
+// ── 태그 셀렉터 ──────────────────────────────────────────────────────────────
+const _kPresetTags = [
+  '카페', '맛집', '산책', '영화', '드라이브',
+  '쇼핑', '공원', '야외', '전시', '운동',
+  '여행', '홈데이트', '야경', '스포츠', '뮤지컬',
+];
+
+class _TagSelector extends StatelessWidget {
+  const _TagSelector({required this.selected, required this.onChanged});
+  final Set<String> selected;
+  final ValueChanged<Set<String>> onChanged;
+
+  void _toggle(String tag) {
+    final next = Set<String>.from(selected);
+    if (next.contains(tag)) {
+      next.remove(tag);
+    } else {
+      next.add(tag);
+    }
+    onChanged(next);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: _kPresetTags.map((tag) {
+        final isSelected = selected.contains(tag);
+        return GestureDetector(
+          onTap: () => _toggle(tag),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              color: isSelected ? AppConstants.pinkLight : AppConstants.surface,
+              borderRadius: BorderRadius.circular(AppConstants.radiusM),
+              border: Border.all(
+                color: isSelected ? AppConstants.pink : Colors.transparent,
+                width: 1.5,
+              ),
+            ),
+            child: Text(
+              tag,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                color: isSelected ? AppConstants.pink : AppConstants.textSecondary,
+              ),
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+}
+
 class _MoodSelector extends StatelessWidget {
   const _MoodSelector({required this.selected, required this.onChanged});
   final int selected;
@@ -340,7 +396,7 @@ class _MoodSelector extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                RabbitMoodWidget(moodScore: mood, size: isSelected ? 34 : 28),
+                MoodWidget(moodScore: mood, size: isSelected ? 34 : 28),
                 const SizedBox(height: 4),
                 Text(
                   AppConstants.moodLabels[mood],

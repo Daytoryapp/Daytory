@@ -15,7 +15,10 @@ class ProfileSetupScreen extends ConsumerStatefulWidget {
 class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nicknameController = TextEditingController();
+  final _nameController = TextEditingController();
   DateTime? _anniversaryDate;
+  DateTime? _birthdate;
+  String? _gender;
   bool _loading = false;
 
   @override
@@ -25,16 +28,22 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
     if (profile?.coupleNickname != null) {
       _nicknameController.text = profile!.coupleNickname!;
     }
+    if (profile?.name != null) {
+      _nameController.text = profile!.name!;
+    }
     _anniversaryDate = profile?.anniversaryDate;
+    _birthdate = profile?.birthdate;
+    _gender = profile?.gender;
   }
 
   @override
   void dispose() {
     _nicknameController.dispose();
+    _nameController.dispose();
     super.dispose();
   }
 
-  Future<void> _pickDate() async {
+  Future<void> _pickAnniversaryDate() async {
     final picked = await showDatePicker(
       context: context,
       initialDate: _anniversaryDate ?? DateTime.now(),
@@ -50,6 +59,22 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
     if (picked != null) setState(() => _anniversaryDate = picked);
   }
 
+  Future<void> _pickBirthdate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _birthdate ?? DateTime(1995),
+      firstDate: DateTime(1940),
+      lastDate: DateTime.now(),
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: const ColorScheme.light(primary: AppConstants.pink),
+        ),
+        child: child!,
+      ),
+    );
+    if (picked != null) setState(() => _birthdate = picked);
+  }
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _loading = true);
@@ -57,7 +82,13 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
       await ref.read(authStateProvider.notifier).completeProfile(
             coupleNickname: _nicknameController.text.trim(),
             anniversaryDate: _anniversaryDate,
+            gender: _gender,
+            name: _nameController.text.trim().isEmpty ? null : _nameController.text.trim(),
+            birthdate: _birthdate,
           );
+      if (mounted && Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -75,11 +106,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
         automaticallyImplyLeading: false,
         title: const Text(
           '프로필 설정',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
-            color: AppConstants.textPrimary,
-          ),
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppConstants.textPrimary),
         ),
       ),
       body: SafeArea(
@@ -90,6 +117,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // 프로필 이미지
                 Center(
                   child: Column(
                     children: [
@@ -97,23 +125,116 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                       const SizedBox(height: 12),
                       Text(
                         profile?.kakaoNickname ?? '사용자',
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                          color: AppConstants.textPrimary,
-                        ),
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppConstants.textPrimary),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 36),
+                const SizedBox(height: 32),
+
+                // ── 성별 선택 ─────────────────────────────────────────────────
+                const Text(
+                  '성별',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppConstants.textPrimary),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _GenderCard(
+                        emoji: '🐰',
+                        label: '여자',
+                        selected: _gender == 'female',
+                        onTap: () => setState(() => _gender = 'female'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _GenderCard(
+                        emoji: '🦊',
+                        label: '남자',
+                        selected: _gender == 'male',
+                        onTap: () => setState(() => _gender = 'male'),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+
+                // ── 이름 ──────────────────────────────────────────────────────
+                const Text(
+                  '이름',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppConstants.textPrimary),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  '선택사항이에요',
+                  style: TextStyle(fontSize: 12, color: AppConstants.textSecondary),
+                ),
+                const SizedBox(height: 8),
+                TextFormField(
+                  controller: _nameController,
+                  decoration: InputDecoration(
+                    hintText: '실명 또는 별명',
+                    hintStyle: const TextStyle(color: AppConstants.textSecondary),
+                    filled: true,
+                    fillColor: AppConstants.surface,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(AppConstants.radiusM),
+                      borderSide: BorderSide.none,
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(AppConstants.radiusM),
+                      borderSide: const BorderSide(color: AppConstants.pink),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                // ── 생년월일 ──────────────────────────────────────────────────
+                const Text(
+                  '생년월일',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppConstants.textPrimary),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  '선택사항이에요',
+                  style: TextStyle(fontSize: 12, color: AppConstants.textSecondary),
+                ),
+                const SizedBox(height: 8),
+                GestureDetector(
+                  onTap: _pickBirthdate,
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    decoration: BoxDecoration(
+                      color: AppConstants.surface,
+                      borderRadius: BorderRadius.circular(AppConstants.radiusM),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.cake_outlined, size: 18, color: AppConstants.textSecondary),
+                        const SizedBox(width: 10),
+                        Text(
+                          _birthdate != null
+                              ? DateFormat('yyyy년 M월 d일').format(_birthdate!)
+                              : '생년월일을 선택하세요',
+                          style: TextStyle(
+                            fontSize: 15,
+                            color: _birthdate != null ? AppConstants.textPrimary : AppConstants.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                // ── 커플 별명 ─────────────────────────────────────────────────
                 const Text(
                   '우리 커플 별명',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: AppConstants.textPrimary,
-                  ),
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppConstants.textPrimary),
                 ),
                 const SizedBox(height: 8),
                 TextFormField(
@@ -131,8 +252,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                       borderRadius: BorderRadius.circular(AppConstants.radiusM),
                       borderSide: const BorderSide(color: AppConstants.pink),
                     ),
-                    contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 14),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                   ),
                   validator: (v) {
                     if (v == null || v.trim().isEmpty) return '별명을 입력해주세요';
@@ -140,48 +260,38 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                   },
                 ),
                 const SizedBox(height: 24),
+
+                // ── 기념일 ────────────────────────────────────────────────────
                 const Text(
                   '처음 만난 날 (기념일)',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: AppConstants.textPrimary,
-                  ),
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppConstants.textPrimary),
                 ),
                 const SizedBox(height: 4),
                 const Text(
                   '선택사항이에요',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppConstants.textSecondary,
-                  ),
+                  style: TextStyle(fontSize: 12, color: AppConstants.textSecondary),
                 ),
                 const SizedBox(height: 8),
                 GestureDetector(
-                  onTap: _pickDate,
+                  onTap: _pickAnniversaryDate,
                   child: Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 14),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                     decoration: BoxDecoration(
                       color: AppConstants.surface,
                       borderRadius: BorderRadius.circular(AppConstants.radiusM),
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.calendar_today_outlined,
-                            size: 18, color: AppConstants.textSecondary),
+                        const Icon(Icons.calendar_today_outlined, size: 18, color: AppConstants.textSecondary),
                         const SizedBox(width: 10),
                         Text(
                           _anniversaryDate != null
-                              ? DateFormat('yyyy년 M월 d일')
-                                  .format(_anniversaryDate!)
+                              ? DateFormat('yyyy년 M월 d일').format(_anniversaryDate!)
                               : '날짜를 선택하세요',
                           style: TextStyle(
                             fontSize: 15,
-                            color: _anniversaryDate != null
-                                ? AppConstants.textPrimary
-                                : AppConstants.textSecondary,
+                            color: _anniversaryDate != null ? AppConstants.textPrimary : AppConstants.textSecondary,
                           ),
                         ),
                       ],
@@ -189,30 +299,31 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                   ),
                 ),
                 const SizedBox(height: 40),
+
                 FilledButton(
                   onPressed: _loading ? null : _submit,
                   style: FilledButton.styleFrom(
                     backgroundColor: AppConstants.pink,
                     minimumSize: const Size(double.infinity, 52),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(AppConstants.radiusM),
-                    ),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppConstants.radiusM)),
                   ),
                   child: _loading
-                      ? const SizedBox(
-                          width: 22,
-                          height: 22,
-                          child: CircularProgressIndicator(
-                              strokeWidth: 2, color: Colors.white),
-                        )
-                      : const Text(
-                          '시작하기',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
+                      ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : const Text('저장하기', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
                 ),
+                if (Navigator.of(context).canPop()) ...[
+                  const SizedBox(height: 12),
+                  OutlinedButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(double.infinity, 48),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppConstants.radiusM)),
+                      side: const BorderSide(color: AppConstants.border),
+                      foregroundColor: AppConstants.textSecondary,
+                    ),
+                    child: const Text('뒤로 가기', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
+                  ),
+                ],
               ],
             ),
           ),
@@ -222,6 +333,50 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
   }
 }
 
+// ── 성별 선택 카드 ───────────────────────────────────────────────────────────
+class _GenderCard extends StatelessWidget {
+  const _GenderCard({required this.emoji, required this.label, required this.selected, required this.onTap});
+  final String emoji;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(vertical: 20),
+        decoration: BoxDecoration(
+          color: selected ? AppConstants.pinkLight : AppConstants.surface,
+          borderRadius: BorderRadius.circular(AppConstants.radiusL),
+          border: Border.all(
+            color: selected ? AppConstants.pink : Colors.transparent,
+            width: 1.5,
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(emoji, style: TextStyle(fontSize: selected ? 42 : 36)),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                color: selected ? AppConstants.pink : AppConstants.textSecondary,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── 프로필 이미지 ────────────────────────────────────────────────────────────
 class _ProfileImage extends StatelessWidget {
   const _ProfileImage({this.imageUrl});
   final String? imageUrl;
@@ -240,14 +395,8 @@ class _ProfileImage extends StatelessWidget {
             ? CachedNetworkImage(
                 imageUrl: imageUrl!,
                 fit: BoxFit.cover,
-                placeholder: (context, url) => const ColoredBox(
-                  color: AppConstants.pinkLight,
-                  child: Center(child: Text('💕', style: TextStyle(fontSize: 30))),
-                ),
-                errorWidget: (context, url, error) => const ColoredBox(
-                  color: AppConstants.pinkLight,
-                  child: Center(child: Text('💕', style: TextStyle(fontSize: 30))),
-                ),
+                placeholder: (_, __) => const ColoredBox(color: AppConstants.pinkLight, child: Center(child: Text('💕', style: TextStyle(fontSize: 30)))),
+                errorWidget: (_, __, ___) => const ColoredBox(color: AppConstants.pinkLight, child: Center(child: Text('💕', style: TextStyle(fontSize: 30)))),
               )
             : const ColoredBox(
                 color: AppConstants.pinkLight,

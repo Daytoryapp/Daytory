@@ -1,17 +1,18 @@
 import 'dart:io';
 import 'package:date_app/src/core/constants/app_constants.dart';
-import 'package:date_app/src/core/widgets/rabbit_mood_widget.dart';
+import 'package:date_app/src/core/widgets/mood_widget.dart';
 import 'package:date_app/src/models/date_log.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
-class DetailScreen extends StatelessWidget {
+class DetailScreen extends ConsumerWidget {
   const DetailScreen({required this.log, super.key});
   final DateLog log;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final moodScore = log.moodScore.clamp(1, 5);
     final moodLabel = AppConstants.moodLabels[moodScore];
     final moodColor = AppConstants.moodColors[log.moodScore.clamp(1, 5)];
@@ -56,7 +57,7 @@ class DetailScreen extends StatelessWidget {
             ),
             child: Row(
               children: [
-                RabbitMoodWidget(moodScore: moodScore, size: 56),
+                MoodWidget(moodScore: moodScore, size: 56),
                 const SizedBox(width: 16),
                 Expanded(
                   child: Column(

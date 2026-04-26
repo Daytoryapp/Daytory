@@ -1,6 +1,6 @@
 import 'dart:io';
 import 'package:date_app/src/core/constants/app_constants.dart';
-import 'package:date_app/src/core/widgets/rabbit_mood_widget.dart';
+import 'package:date_app/src/core/widgets/mood_widget.dart';
 import 'package:date_app/src/features/detail/detail_screen.dart';
 import 'package:date_app/src/models/date_log.dart';
 import 'package:date_app/src/state/date_log_state.dart';
@@ -287,7 +287,7 @@ class _MoodFilterChip extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            RabbitMoodWidget(moodScore: moodScore, size: 20),
+            MoodWidget(moodScore: moodScore, size: 20),
             const SizedBox(width: 5),
             Text(
               AppConstants.moodLabels[moodScore],
@@ -353,7 +353,7 @@ class _LogCard extends ConsumerWidget {
                   : Container(
                       width: 56, height: 56,
                       color: moodColor,
-                      child: Center(child: RabbitMoodWidget(moodScore: moodScore, size: 38)),
+                      child: Center(child: MoodWidget(moodScore: moodScore, size: 38)),
                     ),
             ),
             const SizedBox(width: 14),
