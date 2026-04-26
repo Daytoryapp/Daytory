@@ -50,17 +50,17 @@ class _AddLogScreenState extends ConsumerState<AddLogScreen> {
               const SizedBox(height: 20),
 
               // 이미지
-              _SectionLabel(label: '사진 (최대 5장)'),
+              const _SectionLabel(label: '사진 (최대 5장)'),
               ImagePickerRow(onChanged: (imgs) => setState(() => _images = imgs)),
               const SizedBox(height: 16),
 
               // 제목
-              _SectionLabel(label: '제목 (선택)'),
+              const _SectionLabel(label: '제목 (선택)'),
               TextFormField(controller: _titleController, decoration: const InputDecoration(hintText: '어떤 데이트였나요?')),
               const SizedBox(height: 14),
 
               // 장소
-              _SectionLabel(label: '장소 *'),
+              const _SectionLabel(label: '장소 *'),
               _PlaceField(
                 place: _selectedPlace,
                 onTap: () async {
@@ -71,7 +71,7 @@ class _AddLogScreenState extends ConsumerState<AddLogScreen> {
               const SizedBox(height: 14),
 
               // 날짜
-              _SectionLabel(label: '날짜'),
+              const _SectionLabel(label: '날짜'),
               _DateField(
                 date: _selectedDate,
                 onTap: () async {
@@ -93,7 +93,7 @@ class _AddLogScreenState extends ConsumerState<AddLogScreen> {
               const SizedBox(height: 14),
 
               // 메모
-              _SectionLabel(label: '메모 *'),
+              const _SectionLabel(label: '메모 *'),
               TextFormField(
                 controller: _memoController,
                 maxLines: 4,
@@ -103,7 +103,7 @@ class _AddLogScreenState extends ConsumerState<AddLogScreen> {
               const SizedBox(height: 14),
 
               // 비용
-              _SectionLabel(label: '비용'),
+              const _SectionLabel(label: '비용'),
               TextFormField(
                 controller: _costController,
                 keyboardType: TextInputType.number,
@@ -117,7 +117,7 @@ class _AddLogScreenState extends ConsumerState<AddLogScreen> {
               const SizedBox(height: 14),
 
               // 태그
-              _SectionLabel(label: '태그'),
+              const _SectionLabel(label: '태그'),
               TextFormField(
                 controller: _tagsController,
                 decoration: const InputDecoration(hintText: '카페, 영화, 드라이브 (쉼표 구분)'),
@@ -125,7 +125,7 @@ class _AddLogScreenState extends ConsumerState<AddLogScreen> {
               const SizedBox(height: 24),
 
               // 감정
-              _SectionLabel(label: '오늘 감정은?'),
+              const _SectionLabel(label: '오늘 감정은?'),
               const SizedBox(height: 10),
               _MoodSelector(selected: _mood, onChanged: (m) => setState(() => _mood = m)),
               const SizedBox(height: 32),

@@ -52,14 +52,14 @@ class StatsScreen extends ConsumerWidget {
 
           if (moodDist.isNotEmpty) ...[
             const SizedBox(height: 24),
-            _SectionHeader(title: '감정 분포'),
+            const _SectionHeader(title: '감정 분포'),
             const SizedBox(height: 12),
             _MoodDistribution(distribution: moodDist, total: totalCount),
           ],
 
           if (sortedMonths.isNotEmpty) ...[
             const SizedBox(height: 24),
-            _SectionHeader(title: '월별 횟수'),
+            const _SectionHeader(title: '월별 횟수'),
             const SizedBox(height: 12),
             ...sortedMonths.map((entry) => _MonthRow(month: entry.key, count: entry.value, max: sortedMonths.map((e) => e.value).reduce((a, b) => a > b ? a : b))),
           ],
