@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:date_app/src/core/constants/app_constants.dart';
+import 'package:date_app/src/features/auth/profile_setup_screen.dart';
 import 'package:date_app/src/state/auth_state.dart';
 import 'package:date_app/src/state/date_log_state.dart';
 import 'package:flutter/material.dart';
@@ -82,6 +83,28 @@ class MypageScreen extends ConsumerWidget {
                         ),
                       ],
                     ],
+                  ),
+                ),
+                GestureDetector(
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const ProfileSetupScreen(),
+                    ),
+                  ),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: AppConstants.pinkLight,
+                      borderRadius: BorderRadius.circular(AppConstants.radiusS),
+                    ),
+                    child: const Text(
+                      '수정',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppConstants.pink,
+                      ),
+                    ),
                   ),
                 ),
               ],

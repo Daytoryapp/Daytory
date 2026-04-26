@@ -1,7 +1,8 @@
 import 'package:date_app/src/models/user_profile.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
+import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart' as kakao;
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 enum AuthStatus { loading, loggedOut, needsProfile, ready }
 
@@ -34,15 +35,39 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
-  Future<void> onKakaoLoginSuccess(User kakaoUser) async {
-    final profile = kakaoUser.kakaoAccount?.profile;
-    final partial = UserProfile(
-      kakaoId: '${kakaoUser.id}',
-      kakaoNickname: profile?.nickname ?? '사용자',
-      kakaoProfileImageUrl: profile?.profileImageUrl,
+  Future<void> onKakaoLoginSuccess(kakao.User kakaoUser) async {
+    final kProfile = kakaoUser.kakaoAccount?.profile;
+    final kakaoId = kakaoUser.id.toString();
+
+    // Supabase upsert (기본 정보만)
+    await Supabase.instance.client.from('users').upsert({
+      'kakao_id': kakaoId,
+      'nickname': kProfile?.nickname ?? '사용자',
+      'profile_image': kProfile?.profileImageUrl,
+    }, onConflict: 'kakao_id');
+
+    // Supabase에서 기존 프로필 조회 (couple_nickname, anniversary 포함)
+    final existing = await Supabase.instance.client
+        .from('users')
+        .select()
+        .eq('kakao_id', kakaoId)
+        .maybeSingle();
+
+    final userProfile = UserProfile(
+      kakaoId: kakaoId,
+      kakaoNickname: kProfile?.nickname ?? '사용자',
+      kakaoProfileImageUrl: kProfile?.profileImageUrl,
+      coupleNickname: existing?['couple_nickname'] as String?,
+      anniversaryDate: existing?['anniversary'] != null
+          ? DateTime.tryParse(existing!['anniversary'] as String)
+          : null,
     );
-    await _box.put('data', partial.toMap());
-    state = AuthState(status: AuthStatus.needsProfile, profile: partial);
+
+    await _box.put('data', userProfile.toMap());
+    state = AuthState(
+      status: userProfile.isComplete ? AuthStatus.ready : AuthStatus.needsProfile,
+      profile: userProfile,
+    );
   }
 
   Future<void> completeProfile({
@@ -53,13 +78,19 @@ class AuthNotifier extends StateNotifier<AuthState> {
       coupleNickname: coupleNickname,
       anniversaryDate: anniversaryDate,
     );
+
+    await Supabase.instance.client.from('users').update({
+      'couple_nickname': coupleNickname,
+      'anniversary': anniversaryDate?.toIso8601String(),
+    }).eq('kakao_id', updated.kakaoId);
+
     await _box.put('data', updated.toMap());
     state = AuthState(status: AuthStatus.ready, profile: updated);
   }
 
   Future<void> logout() async {
     try {
-      await UserApi.instance.logout();
+      await kakao.UserApi.instance.logout();
     } catch (_) {}
     await _box.delete('data');
     state = const AuthState(status: AuthStatus.loggedOut);
