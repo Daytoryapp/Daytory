@@ -213,6 +213,19 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                       ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                       : const Text('시작하기', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
                 ),
+                if (Navigator.of(context).canPop()) ...[
+                  const SizedBox(height: 12),
+                  OutlinedButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(double.infinity, 48),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppConstants.radiusM)),
+                      side: const BorderSide(color: AppConstants.border),
+                      foregroundColor: AppConstants.textSecondary,
+                    ),
+                    child: const Text('뒤로 가기', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
+                  ),
+                ],
               ],
             ),
           ),

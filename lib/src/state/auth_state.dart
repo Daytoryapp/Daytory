@@ -82,11 +82,20 @@ class AuthNotifier extends StateNotifier<AuthState> {
       gender: gender,
     );
 
-    await Supabase.instance.client.from('users').update({
-      'couple_nickname': coupleNickname,
-      'anniversary': anniversaryDate?.toIso8601String(),
-      if (gender != null) 'gender': gender,
-    }).eq('kakao_id', updated.kakaoId);
+    // gender 컬럼이 아직 없을 수 있으므로 폴백 처리
+    try {
+      await Supabase.instance.client.from('users').update({
+        'couple_nickname': coupleNickname,
+        'anniversary': anniversaryDate?.toIso8601String(),
+        if (gender != null) 'gender': gender,
+      }).eq('kakao_id', updated.kakaoId);
+    } catch (_) {
+      // gender 컬럼 미존재 시 해당 필드 제외하고 재시도
+      await Supabase.instance.client.from('users').update({
+        'couple_nickname': coupleNickname,
+        'anniversary': anniversaryDate?.toIso8601String(),
+      }).eq('kakao_id', updated.kakaoId);
+    }
 
     await _box.put('data', updated.toMap());
     state = AuthState(status: AuthStatus.ready, profile: updated);
