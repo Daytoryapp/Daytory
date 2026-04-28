@@ -574,6 +574,93 @@ Stack(
 - 마커 말풍선 꼬리(TailPainter)가 직선 삼각형이라 날카로움
 - 바텀시트 감정 이모지 표시
 
+#### 카테고리별 마커 색상 팔레트 (v2.0 추가)
+
+지도 위 마커에 카테고리별 bg/border 색상 쌍을 적용한다.
+bg는 파스텔(채도 낮음), border는 bg보다 채도 높게 처리해 지도 위 가독성과 카테고리 인식을 동시에 확보한다.
+
+```dart
+// Category marker colors: [bgColor, borderColor]
+static const Map<String, List<Color>> categoryMarkerColors = {
+  // ── 핑크/로즈 계열
+  '카페':     [Color(0xFFFFE0EC), Color(0xFFFF5A8A)], // 앱 pink 포인트 직접 활용
+  '뮤지컬':   [Color(0xFFFFD6E7), Color(0xFFE8387A)], // 딥로즈
+  '홈데이트': [Color(0xFFFFE8F2), Color(0xFFFF7DAE)], // 라이트로즈
+
+  // ── 코랄/레드 계열
+  '맛집':     [Color(0xFFFFDDD8), Color(0xFFFF7B6B)], // 앱 coral 토큰 활용
+  '영화':     [Color(0xFFFFCFC8), Color(0xFFEE5A4A)], // 딥코랄
+
+  // ── 피치/오렌지 계열
+  '드라이브': [Color(0xFFFFE5CC), Color(0xFFFFB08A)], // 앱 peach 토큰 활용
+  '야경':     [Color(0xFFFFD8B0), Color(0xFFEE9055)], // 딥오렌지
+
+  // ── 옐로우/골드 계열
+  '공원':     [Color(0xFFFFF2CC), Color(0xFFE8B830)], // 골드옐로우
+  '산책':     [Color(0xFFFFF8DC), Color(0xFFD4A820)], // 라이트골드
+
+  // ── 그린/민트 계열
+  '야외':     [Color(0xFFD6F0E0), Color(0xFF4EBB7A)], // 민트그린
+  '운동':     [Color(0xFFCCEBDA), Color(0xFF38A862)], // 딥그린
+
+  // ── 블루/스카이 계열
+  '여행':     [Color(0xFFD6E8FB), Color(0xFF5090DC)], // 스카이블루 (moodColors[1] 계열)
+  '스포츠':   [Color(0xFFCCDFF8), Color(0xFF3570C8)], // 딥블루
+
+  // ── 라벤더/퍼플 계열
+  '쇼핑':     [Color(0xFFEDE0F8), Color(0xFFAA72DC)], // 라벤더
+  '전시':     [Color(0xFFE4D5F5), Color(0xFF9258CC)], // 딥퍼플
+};
+```
+
+#### 클러스터 마커 디자인 스펙 (v2.0 추가)
+
+여러 마커가 겹칠 때 표시하는 클러스터 버블. 개별 카테고리 색상 대신 앱 포인트 컬러를 사용해 "군집"임을 즉시 인식시킨다.
+
+```dart
+// ── 크기
+// size: 48×48  (기본)
+// size: 56×56  (count > 10, 세 자리 숫자 대응)
+
+// ── 색상 상수
+static const Color clusterBg         = Color(0xFFFF5A8A); // pink
+static const Color clusterBorder     = Color(0xFFFFFFFF); // 지도 배경 분리용 흰 테두리
+static const double clusterSize      = 48.0;
+static const double clusterSizeLarge = 56.0; // count > 10 시 사용
+static const double clusterBorderWidth = 2.5;
+static const double clusterFontSize  = 15.0;
+// boxShadow: color(0x33FF5A8A), blurRadius 8, offset Offset(0, 2)
+
+// ── 위젯 구현
+// Container(
+//   width: count > 10 ? clusterSizeLarge : clusterSize,
+//   height: count > 10 ? clusterSizeLarge : clusterSize,
+//   decoration: BoxDecoration(
+//     color: clusterBg,
+//     shape: BoxShape.circle,
+//     border: Border.all(color: clusterBorder, width: clusterBorderWidth),
+//     boxShadow: [
+//       BoxShadow(
+//         color: Color(0x33FF5A8A),
+//         blurRadius: 8,
+//         offset: Offset(0, 2),
+//       ),
+//     ],
+//   ),
+//   child: Center(
+//     child: Text(
+//       '$count',
+//       style: TextStyle(
+//         color: Colors.white,
+//         fontSize: clusterFontSize,
+//         fontWeight: FontWeight.w700,
+//         letterSpacing: -0.5,
+//       ),
+//     ),
+//   ),
+// )
+```
+
 **개선안**
 ```dart
 // 마커 내부 감정 표현: 이모지 → RabbitMoodWidget

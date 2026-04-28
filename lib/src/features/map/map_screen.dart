@@ -8,6 +8,7 @@ import 'package:date_app/src/state/date_log_state.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:flutter_map_marker_cluster/flutter_map_marker_cluster.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart';
@@ -32,6 +33,18 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         ? allLogs
         : allLogs.where((l) => l.tags.contains(categoryFilter)).toList();
 
+    final markers = logs.map((log) {
+      return Marker(
+        point: LatLng(log.latitude, log.longitude),
+        width: 64,
+        height: 76,
+        child: GestureDetector(
+          onTap: () => _showPreview(context, log.id),
+          child: _MapMarker(log: log),
+        ),
+      );
+    }).toList();
+
     return Stack(
       children: [
         FlutterMap(
@@ -40,7 +53,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
             initialCenter: const LatLng(36.5, 127.8),
             initialZoom: _currentZoom,
             onMapEvent: (event) {
-              if (event is MapEventMove || event is MapEventScrollWheelZoom || event is MapEventFlingAnimation) {
+              if (event is MapEventMove ||
+                  event is MapEventScrollWheelZoom ||
+                  event is MapEventFlingAnimation) {
                 final zoom = _mapController.camera.zoom;
                 if ((zoom - _currentZoom).abs() > 0.1) {
                   setState(() => _currentZoom = zoom);
@@ -53,18 +68,17 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               urlTemplate: AppConstants.osmTileUrl,
               userAgentPackageName: AppConstants.userAgentPackage,
             ),
-            MarkerLayer(
-              markers: logs.map((log) {
-                return Marker(
-                  point: LatLng(log.latitude, log.longitude),
-                  width: 64,
-                  height: 76,
-                  child: GestureDetector(
-                    onTap: () => _showPreview(context, log.id),
-                    child: _MapMarker(log: log),
-                  ),
-                );
-              }).toList(),
+            MarkerClusterLayerWidget(
+              options: MarkerClusterLayerOptions(
+                maxClusterRadius: 72,
+                size: const Size(AppConstants.clusterSize, AppConstants.clusterSize),
+                alignment: Alignment.center,
+                padding: const EdgeInsets.all(50),
+                maxZoom: 14,
+                markers: markers,
+                builder: (context, clusterMarkers) =>
+                    _ClusterMarker(count: clusterMarkers.length),
+              ),
             ),
           ],
         ),
@@ -137,6 +151,38 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   }
 }
 
+// ── 클러스터 마커 ────────────────────────────────────────────────────────────
+class _ClusterMarker extends StatelessWidget {
+  const _ClusterMarker({required this.count});
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    final size = count > 10 ? AppConstants.clusterSizeLarge : AppConstants.clusterSize;
+    final label = count > 99 ? '99+' : '$count';
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: AppConstants.clusterBg,
+        shape: BoxShape.circle,
+        border: Border.all(color: AppConstants.clusterBorder, width: AppConstants.clusterBorderWidth),
+        boxShadow: const [BoxShadow(color: Color(0x33FF5A8A), blurRadius: 8, offset: Offset(0, 2))],
+      ),
+      child: Center(
+        child: Text(
+          label,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: AppConstants.clusterFontSize,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 // ── 카테고리 필터 바 ───────────────────────────────────────────────────────────
 class _CategoryFilterBar extends ConsumerWidget {
   const _CategoryFilterBar();
@@ -153,21 +199,27 @@ class _CategoryFilterBar extends ConsumerWidget {
             label: '전체',
             emoji: null,
             isSelected: selected == null,
+            selectedBgColor: AppConstants.pink,
             onTap: () => ref.read(mapCategoryFilterProvider.notifier).state = null,
           ),
           const SizedBox(width: 6),
-          ...AppConstants.categoryList.expand((cat) => [
-            _CategoryChip(
-              label: cat,
-              emoji: AppConstants.categoryEmojis[cat],
-              isSelected: selected == cat,
-              onTap: () {
-                ref.read(mapCategoryFilterProvider.notifier).state =
-                    selected == cat ? null : cat;
-              },
-            ),
-            const SizedBox(width: 6),
-          ]),
+          ...AppConstants.categoryList.expand((cat) {
+            final colors = AppConstants.categoryMarkerColors[cat];
+            final selectedBg = colors?[1] ?? AppConstants.pink;
+            return [
+              _CategoryChip(
+                label: cat,
+                emoji: AppConstants.categoryEmojis[cat],
+                isSelected: selected == cat,
+                selectedBgColor: selectedBg,
+                onTap: () {
+                  ref.read(mapCategoryFilterProvider.notifier).state =
+                      selected == cat ? null : cat;
+                },
+              ),
+              const SizedBox(width: 6),
+            ];
+          }),
         ],
       ),
     );
@@ -179,11 +231,13 @@ class _CategoryChip extends StatelessWidget {
     required this.label,
     required this.emoji,
     required this.isSelected,
+    required this.selectedBgColor,
     required this.onTap,
   });
   final String label;
   final String? emoji;
   final bool isSelected;
+  final Color selectedBgColor;
   final VoidCallback onTap;
 
   @override
@@ -194,7 +248,7 @@ class _CategoryChip extends StatelessWidget {
         duration: const Duration(milliseconds: 150),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
         decoration: BoxDecoration(
-          color: isSelected ? AppConstants.pink : Colors.white,
+          color: isSelected ? selectedBgColor : Colors.white,
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(color: Colors.black.withAlpha(15), blurRadius: 6, offset: const Offset(0, 1)),
@@ -254,11 +308,14 @@ class _MapMarkerState extends State<_MapMarker> {
   @override
   Widget build(BuildContext context) {
     final moodScore = widget.log.moodScore.clamp(1, 5);
-    final moodColor = AppConstants.moodColors[moodScore];
-    final borderColor = AppConstants.moodBorderColors[moodScore];
+    final primaryTag = widget.log.tags.isNotEmpty ? widget.log.tags.first : null;
+    final catColors = primaryTag != null ? AppConstants.categoryMarkerColors[primaryTag] : null;
+
+    final bgColor = catColors?[0] ?? AppConstants.moodColors[moodScore];
+    final borderColor = catColors?[1] ?? AppConstants.moodBorderColors[moodScore];
+
     final hasPhoto = widget.log.photos.isNotEmpty;
     final photoPath = hasPhoto ? widget.log.photos.first : null;
-    final primaryTag = widget.log.tags.isNotEmpty ? widget.log.tags.first : null;
     final categoryEmoji = primaryTag != null ? AppConstants.categoryEmojis[primaryTag] : null;
 
     return Column(
@@ -279,7 +336,7 @@ class _MapMarkerState extends State<_MapMarker> {
                 ],
               ),
               child: ClipOval(
-                child: _markerContent(hasPhoto, photoPath, moodScore, moodColor),
+                child: _markerContent(hasPhoto, photoPath, moodScore, bgColor),
               ),
             ),
             if (categoryEmoji != null)
@@ -310,32 +367,34 @@ class _MapMarkerState extends State<_MapMarker> {
     );
   }
 
-  Widget _markerContent(bool hasPhoto, String? photoPath, int moodScore, Color moodColor) {
+  Widget _markerContent(bool hasPhoto, String? photoPath, int moodScore, Color bgColor) {
     if (_bytes != null) {
       return Image.memory(_bytes!, fit: BoxFit.cover, width: 52, height: 52);
     }
-    if (hasPhoto && photoPath != null && (photoPath.startsWith('http') || photoPath.startsWith('blob:'))) {
+    if (hasPhoto && photoPath != null &&
+        (photoPath.startsWith('http') || photoPath.startsWith('blob:'))) {
       return Image.network(
         photoPath,
         fit: BoxFit.cover,
         width: 52,
         height: 52,
-        errorBuilder: (_, __, ___) => _RabbitMarkerContent(moodScore: moodScore, moodColor: moodColor),
+        errorBuilder: (_, __, ___) =>
+            _MarkerBg(moodScore: moodScore, bgColor: bgColor),
       );
     }
-    return _RabbitMarkerContent(moodScore: moodScore, moodColor: moodColor);
+    return _MarkerBg(moodScore: moodScore, bgColor: bgColor);
   }
 }
 
-class _RabbitMarkerContent extends ConsumerWidget {
-  const _RabbitMarkerContent({required this.moodScore, required this.moodColor});
+class _MarkerBg extends StatelessWidget {
+  const _MarkerBg({required this.moodScore, required this.bgColor});
   final int moodScore;
-  final Color moodColor;
+  final Color bgColor;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     return Container(
-      color: moodColor.withAlpha(60),
+      color: bgColor.withAlpha(80),
       child: Center(child: MoodWidget(moodScore: moodScore, size: 32)),
     );
   }
@@ -384,7 +443,7 @@ class _MapIconButton extends StatelessWidget {
   }
 }
 
-// ── 바텀시트 프리뷰 (ConsumerStatefulWidget) ────────────────────────────────
+// ── 바텀시트 프리뷰 ──────────────────────────────────────────────────────────
 class _MapLogPreview extends ConsumerStatefulWidget {
   const _MapLogPreview({required this.logId});
   final String logId;
@@ -438,7 +497,6 @@ class _MapLogPreviewState extends ConsumerState<_MapLogPreview> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Handle bar
             Center(
               child: Container(
                 width: 36, height: 4,
@@ -447,7 +505,6 @@ class _MapLogPreviewState extends ConsumerState<_MapLogPreview> {
             ),
             const SizedBox(height: 16),
 
-            // Log info row
             Row(
               children: [
                 ClipRRect(
@@ -491,16 +548,20 @@ class _MapLogPreviewState extends ConsumerState<_MapLogPreview> {
                         Wrap(
                           spacing: 4,
                           children: log.tags.map((tag) {
+                            final catColors = AppConstants.categoryMarkerColors[tag];
+                            final chipBg = catColors?[0] ?? AppConstants.pinkLight;
+                            final chipBorder = catColors?[1] ?? AppConstants.pink;
                             final emoji = AppConstants.categoryEmojis[tag];
                             return Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                               decoration: BoxDecoration(
-                                color: AppConstants.pinkLight,
+                                color: chipBg,
                                 borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: chipBorder.withAlpha(80), width: 1),
                               ),
                               child: Text(
                                 emoji != null ? '$emoji $tag' : tag,
-                                style: const TextStyle(fontSize: 11, color: AppConstants.pink, fontWeight: FontWeight.w500),
+                                style: TextStyle(fontSize: 11, color: chipBorder, fontWeight: FontWeight.w600),
                               ),
                             );
                           }).toList(),
@@ -532,7 +593,6 @@ class _MapLogPreviewState extends ConsumerState<_MapLogPreview> {
 
             const SizedBox(height: 16),
 
-            // Action buttons
             Row(
               children: [
                 Expanded(
@@ -555,7 +615,9 @@ class _MapLogPreviewState extends ConsumerState<_MapLogPreview> {
                   child: FilledButton(
                     onPressed: () {
                       Navigator.of(context).pop();
-                      Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => DetailScreen(log: log)));
+                      Navigator.of(context).push(MaterialPageRoute<void>(
+                        builder: (_) => DetailScreen(log: log),
+                      ));
                     },
                     style: FilledButton.styleFrom(minimumSize: const Size(double.infinity, 48)),
                     child: const Text('상세 보기'),
