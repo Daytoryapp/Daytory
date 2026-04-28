@@ -81,4 +81,85 @@ class AppConstants {
   // 하위 호환: moodEmojis는 필터 칩 텍스트 등 이모지가 꼭 필요한 곳에만 유지
   // 실제 감정 표현 UI는 RabbitMoodWidget으로 교체
   static const List<String> moodEmojis = ['', ':(', ':|', ':)', ':D', 'X)'];
+
+  // ── 카테고리 (태그 기반) ─────────────────────────────────────────────────────
+  static const List<String> categoryList = [
+    '카페', '맛집', '산책', '영화', '드라이브',
+    '쇼핑', '공원', '야외', '전시', '운동',
+    '여행', '홈데이트', '야경', '스포츠', '뮤지컬',
+  ];
+
+  static const Map<String, String> categoryEmojis = {
+    '카페': '☕',
+    '맛집': '🍜',
+    '산책': '🚶',
+    '영화': '🎬',
+    '드라이브': '🚗',
+    '쇼핑': '🛍️',
+    '공원': '🌳',
+    '야외': '🌿',
+    '전시': '🎨',
+    '운동': '🏃',
+    '여행': '✈️',
+    '홈데이트': '🏠',
+    '야경': '🌃',
+    '스포츠': '⚽',
+    '뮤지컬': '🎭',
+  };
+
+  // ── 지도 마커 색상 (카테고리별) ────────────────────────────────────────────
+  // 각 항목: [bgColor(파스텔), borderColor(채도 높음)]
+
+  /// 카테고리별 마커 bg/border 색상 쌍
+  static const Map<String, List<Color>> categoryMarkerColors = {
+    // 핑크/로즈 계열
+    '카페':     [Color(0xFFFFE0EC), Color(0xFFFF5A8A)], // 앱 pink 포인트
+    '뮤지컬':   [Color(0xFFFFD6E7), Color(0xFFE8387A)], // 딥로즈
+    '홈데이트': [Color(0xFFFFE8F2), Color(0xFFFF7DAE)], // 라이트로즈
+
+    // 코랄/레드 계열
+    '맛집':     [Color(0xFFFFDDD8), Color(0xFFFF7B6B)], // 앱 coral 토큰
+    '영화':     [Color(0xFFFFCFC8), Color(0xFFEE5A4A)], // 딥코랄
+
+    // 피치/오렌지 계열
+    '드라이브': [Color(0xFFFFE5CC), Color(0xFFFFB08A)], // 앱 peach 토큰
+    '야경':     [Color(0xFFFFD8B0), Color(0xFFEE9055)], // 딥오렌지
+
+    // 옐로우/골드 계열
+    '공원':     [Color(0xFFFFF2CC), Color(0xFFE8B830)], // 골드옐로우
+    '산책':     [Color(0xFFFFF8DC), Color(0xFFD4A820)], // 라이트골드
+
+    // 그린/민트 계열
+    '야외':     [Color(0xFFD6F0E0), Color(0xFF4EBB7A)], // 민트그린
+    '운동':     [Color(0xFFCCEBDA), Color(0xFF38A862)], // 딥그린
+
+    // 블루/스카이 계열
+    '여행':     [Color(0xFFD6E8FB), Color(0xFF5090DC)], // 스카이블루
+    '스포츠':   [Color(0xFFCCDFF8), Color(0xFF3570C8)], // 딥블루
+
+    // 라벤더/퍼플 계열
+    '쇼핑':     [Color(0xFFEDE0F8), Color(0xFFAA72DC)], // 라벤더
+    '전시':     [Color(0xFFE4D5F5), Color(0xFF9258CC)], // 딥퍼플
+  };
+
+  // ── 클러스터 마커 상수 ──────────────────────────────────────────────────────
+
+  /// 클러스터 버블 배경 (앱 포인트 컬러 — 군집 즉시 인식)
+  static const Color clusterBg         = Color(0xFFFF5A8A);
+
+  /// 클러스터 테두리 (지도 배경과 분리)
+  static const Color clusterBorder     = Color(0xFFFFFFFF);
+
+  /// 클러스터 기본 크기 (count ≤ 10)
+  static const double clusterSize      = 48.0;
+
+  /// 클러스터 확장 크기 (count > 10, 세 자리 숫자 대응)
+  static const double clusterSizeLarge = 56.0;
+
+  /// 클러스터 테두리 두께
+  static const double clusterBorderWidth = 2.5;
+
+  /// 클러스터 숫자 폰트 크기
+  static const double clusterFontSize  = 15.0;
+  // boxShadow: Color(0x33FF5A8A), blurRadius 8, offset Offset(0, 2)
 }
