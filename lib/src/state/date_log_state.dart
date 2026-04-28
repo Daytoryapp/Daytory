@@ -12,6 +12,7 @@ final dateLogControllerProvider =
 final selectedDayProvider = StateProvider<DateTime>((ref) => DateTime.now());
 final selectedTagFilterProvider = StateProvider<String?>((ref) => null);
 final moodFilterProvider = StateProvider<int?>((ref) => null);
+final mapCategoryFilterProvider = StateProvider<String?>((ref) => null);
 
 class DateLogController extends StateNotifier<List<DateLog>> {
   DateLogController(this._repository) : super([]);

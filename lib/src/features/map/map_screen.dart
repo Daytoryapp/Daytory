@@ -26,7 +26,12 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final logs = ref.watch(dateLogControllerProvider);
+    final allLogs = ref.watch(dateLogControllerProvider);
+    final categoryFilter = ref.watch(mapCategoryFilterProvider);
+    final logs = categoryFilter == null
+        ? allLogs
+        : allLogs.where((l) => l.tags.contains(categoryFilter)).toList();
+
     return Stack(
       children: [
         FlutterMap(
@@ -52,8 +57,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               markers: logs.map((log) {
                 return Marker(
                   point: LatLng(log.latitude, log.longitude),
-                  width: 60,
-                  height: 72,
+                  width: 64,
+                  height: 76,
                   child: GestureDetector(
                     onTap: () => _showPreview(context, log.id),
                     child: _MapMarker(log: log),
@@ -70,23 +75,31 @@ class _MapScreenState extends ConsumerState<MapScreen> {
           left: 0,
           right: 0,
           child: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(AppConstants.radiusXL),
-                      boxShadow: [BoxShadow(color: Colors.black.withAlpha(20), blurRadius: 12, offset: const Offset(0, 2))],
-                    ),
-                    child: const Text('지도', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppConstants.textPrimary)),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(AppConstants.radiusXL),
+                          boxShadow: [BoxShadow(color: Colors.black.withAlpha(20), blurRadius: 12, offset: const Offset(0, 2))],
+                        ),
+                        child: const Text('지도', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppConstants.textPrimary)),
+                      ),
+                      const Spacer(),
+                      _MapIconButton(icon: Icons.my_location_rounded, onTap: () {}),
+                    ],
                   ),
-                  const Spacer(),
-                  _MapIconButton(icon: Icons.my_location_rounded, onTap: () {}),
-                ],
-              ),
+                ),
+                const SizedBox(height: 8),
+                const _CategoryFilterBar(),
+              ],
             ),
           ),
         ),
@@ -100,7 +113,12 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                 borderRadius: BorderRadius.circular(AppConstants.radiusL),
                 boxShadow: [BoxShadow(color: Colors.black.withAlpha(20), blurRadius: 12)],
               ),
-              child: const Text('기록을 추가하면 지도에 표시돼요', style: TextStyle(fontSize: 14, color: AppConstants.textSecondary)),
+              child: Text(
+                categoryFilter != null
+                    ? "'$categoryFilter' 기록이 없어요"
+                    : '기록을 추가하면 지도에 표시돼요',
+                style: const TextStyle(fontSize: 14, color: AppConstants.textSecondary),
+              ),
             ),
           ),
       ],
@@ -115,6 +133,91 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(AppConstants.radiusXL)),
       ),
       builder: (_) => _MapLogPreview(logId: logId),
+    );
+  }
+}
+
+// ── 카테고리 필터 바 ───────────────────────────────────────────────────────────
+class _CategoryFilterBar extends ConsumerWidget {
+  const _CategoryFilterBar();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final selected = ref.watch(mapCategoryFilterProvider);
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+      child: Row(
+        children: [
+          _CategoryChip(
+            label: '전체',
+            emoji: null,
+            isSelected: selected == null,
+            onTap: () => ref.read(mapCategoryFilterProvider.notifier).state = null,
+          ),
+          const SizedBox(width: 6),
+          ...AppConstants.categoryList.expand((cat) => [
+            _CategoryChip(
+              label: cat,
+              emoji: AppConstants.categoryEmojis[cat],
+              isSelected: selected == cat,
+              onTap: () {
+                ref.read(mapCategoryFilterProvider.notifier).state =
+                    selected == cat ? null : cat;
+              },
+            ),
+            const SizedBox(width: 6),
+          ]),
+        ],
+      ),
+    );
+  }
+}
+
+class _CategoryChip extends StatelessWidget {
+  const _CategoryChip({
+    required this.label,
+    required this.emoji,
+    required this.isSelected,
+    required this.onTap,
+  });
+  final String label;
+  final String? emoji;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        decoration: BoxDecoration(
+          color: isSelected ? AppConstants.pink : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(color: Colors.black.withAlpha(15), blurRadius: 6, offset: const Offset(0, 1)),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (emoji != null) ...[
+              Text(emoji!, style: const TextStyle(fontSize: 13)),
+              const SizedBox(width: 4),
+            ],
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                color: isSelected ? Colors.white : AppConstants.textPrimary,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -155,24 +258,49 @@ class _MapMarkerState extends State<_MapMarker> {
     final borderColor = AppConstants.moodBorderColors[moodScore];
     final hasPhoto = widget.log.photos.isNotEmpty;
     final photoPath = hasPhoto ? widget.log.photos.first : null;
+    final primaryTag = widget.log.tags.isNotEmpty ? widget.log.tags.first : null;
+    final categoryEmoji = primaryTag != null ? AppConstants.categoryEmojis[primaryTag] : null;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Container(
-          width: 52,
-          height: 52,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            shape: BoxShape.circle,
-            border: Border.all(color: borderColor, width: 2.5),
-            boxShadow: [
-              BoxShadow(color: Colors.black.withAlpha(30), blurRadius: 8, offset: const Offset(0, 3)),
-            ],
-          ),
-          child: ClipOval(
-            child: _markerContent(hasPhoto, photoPath, moodScore, moodColor),
-          ),
+        Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Container(
+              width: 52,
+              height: 52,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+                border: Border.all(color: borderColor, width: 2.5),
+                boxShadow: [
+                  BoxShadow(color: Colors.black.withAlpha(30), blurRadius: 8, offset: const Offset(0, 3)),
+                ],
+              ),
+              child: ClipOval(
+                child: _markerContent(hasPhoto, photoPath, moodScore, moodColor),
+              ),
+            ),
+            if (categoryEmoji != null)
+              Positioned(
+                bottom: -2,
+                right: -2,
+                child: Container(
+                  width: 20,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: borderColor, width: 1.5),
+                    boxShadow: [BoxShadow(color: Colors.black.withAlpha(20), blurRadius: 4)],
+                  ),
+                  child: Center(
+                    child: Text(categoryEmoji, style: const TextStyle(fontSize: 10)),
+                  ),
+                ),
+              ),
+          ],
         ),
         CustomPaint(
           size: const Size(12, 7),
@@ -358,6 +486,26 @@ class _MapLogPreviewState extends ConsumerState<_MapLogPreview> {
                           ),
                         ],
                       ),
+                      if (log.tags.isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        Wrap(
+                          spacing: 4,
+                          children: log.tags.map((tag) {
+                            final emoji = AppConstants.categoryEmojis[tag];
+                            return Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: AppConstants.pinkLight,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                emoji != null ? '$emoji $tag' : tag,
+                                style: const TextStyle(fontSize: 11, color: AppConstants.pink, fontWeight: FontWeight.w500),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ],
                     ],
                   ),
                 ),
