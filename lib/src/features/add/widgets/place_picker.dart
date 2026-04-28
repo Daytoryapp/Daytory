@@ -2,6 +2,7 @@ import 'package:date_app/src/core/constants/app_constants.dart';
 import 'package:date_app/src/core/constants/place_constants.dart';
 import 'package:date_app/src/models/date_place.dart';
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 
 class PlacePicker extends StatefulWidget {
   const PlacePicker({super.key, required this.onSelected, this.initial});
@@ -50,6 +51,7 @@ class _PlacePickerContent extends StatefulWidget {
 class _PlacePickerContentState extends State<_PlacePickerContent> {
   SidoInfo? _selectedSido;
   SigunguInfo? _selectedSigungu;
+  bool _loadingLocation = false;
 
   @override
   void initState() {
@@ -62,6 +64,42 @@ class _PlacePickerContentState extends State<_PlacePickerContent> {
         _selectedSigungu = _selectedSido!.sigungus
             .where((sg) => sg.name == widget.initial!.sigungu)
             .firstOrNull;
+      }
+    }
+  }
+
+  Future<void> _useCurrentLocation() async {
+    if (_loadingLocation) return;
+    setState(() => _loadingLocation = true);
+    try {
+      LocationPermission perm = await Geolocator.checkPermission();
+      if (perm == LocationPermission.denied) {
+        perm = await Geolocator.requestPermission();
+      }
+      if (perm == LocationPermission.denied || perm == LocationPermission.deniedForever) {
+        if (mounted) {
+          setState(() => _loadingLocation = false);
+          if (perm == LocationPermission.deniedForever) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('설정에서 위치 권한을 허용해 주세요.')),
+            );
+          }
+        }
+        return;
+      }
+      final pos = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+      if (mounted) {
+        final place = PlaceConstants.findNearestDatePlace(pos.latitude, pos.longitude);
+        Navigator.of(context).pop(place);
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _loadingLocation = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('위치를 가져올 수 없어요.')),
+        );
       }
     }
   }
@@ -108,6 +146,30 @@ class _PlacePickerContentState extends State<_PlacePickerContent> {
         ),
         const SizedBox(height: 8),
         const Divider(height: 1),
+        // 현재 위치 버튼 (시도 선택 전에만 표시)
+        if (_selectedSido == null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
+            child: SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _loadingLocation ? null : _useCurrentLocation,
+                icon: _loadingLocation
+                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.my_location_rounded, size: 18),
+                label: Text(_loadingLocation ? '위치 확인 중...' : '현재 위치 사용'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF4A8FE7),
+                  side: const BorderSide(color: Color(0xFF4A8FE7)),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppConstants.radiusM),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        if (_selectedSido == null) const Divider(height: 1),
         Expanded(
           child: _selectedSido == null
               ? _SidoList(

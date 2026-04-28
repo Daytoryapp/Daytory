@@ -48,7 +48,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         return;
       }
       final pos = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+        desiredAccuracy: LocationAccuracy.high,
       );
       if (mounted) {
         final latLng = LatLng(pos.latitude, pos.longitude);
@@ -118,6 +118,17 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                     _ClusterMarker(count: clusterMarkers.length),
               ),
             ),
+            if (_currentLocation != null)
+              MarkerLayer(
+                markers: [
+                  Marker(
+                    point: _currentLocation!,
+                    width: 24,
+                    height: 24,
+                    child: const _CurrentLocationMarker(),
+                  ),
+                ],
+              ),
           ],
         ),
 
@@ -145,7 +156,10 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                         child: const Text('지도', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppConstants.textPrimary)),
                       ),
                       const Spacer(),
-                      _MapIconButton(icon: Icons.my_location_rounded, onTap: () {}),
+                      _MapIconButton(
+                    icon: _loadingLocation ? Icons.sync : Icons.my_location_rounded,
+                    onTap: _goToCurrentLocation,
+                  ),
                     ],
                   ),
                 ),
@@ -185,6 +199,25 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(AppConstants.radiusXL)),
       ),
       builder: (_) => _MapLogPreview(logId: logId),
+    );
+  }
+}
+
+// ── 현재 위치 마커 ────────────────────────────────────────────────────────────
+class _CurrentLocationMarker extends StatelessWidget {
+  const _CurrentLocationMarker();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 20,
+      height: 20,
+      decoration: BoxDecoration(
+        color: const Color(0xFF4A8FE7),
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.white, width: 3),
+        boxShadow: const [BoxShadow(color: Color(0x554A8FE7), blurRadius: 8, offset: Offset(0, 2))],
+      ),
     );
   }
 }
