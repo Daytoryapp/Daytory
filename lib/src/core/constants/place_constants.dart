@@ -287,4 +287,32 @@ class PlaceConstants {
       longitude: sigungu.lng,
     );
   }
+
+  /// GPS 좌표에서 가장 가까운 시군구를 찾아 DatePlace 반환.
+  /// latitude/longitude는 실제 GPS 값을 사용하고, sido/sigungu는 가장 인접한 행정구역명 사용.
+  static DatePlace findNearestDatePlace(double lat, double lon) {
+    String nearestSido = regions.first.name;
+    SigunguInfo nearestSigungu = regions.first.sigungus.first;
+    double minDist = double.infinity;
+
+    for (final sido in regions) {
+      for (final sigungu in sido.sigungus) {
+        final dx = sigungu.lat - lat;
+        final dy = sigungu.lng - lon;
+        final dist = dx * dx + dy * dy;
+        if (dist < minDist) {
+          minDist = dist;
+          nearestSigungu = sigungu;
+          nearestSido = sido.name;
+        }
+      }
+    }
+
+    return DatePlace(
+      sido: nearestSido,
+      sigungu: nearestSigungu.name,
+      latitude: lat,
+      longitude: lon,
+    );
+  }
 }

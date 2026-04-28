@@ -8,6 +8,7 @@ import 'package:date_app/src/state/date_log_state.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:flutter_map_marker_cluster/flutter_map_marker_cluster.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -24,6 +25,43 @@ class MapScreen extends ConsumerStatefulWidget {
 class _MapScreenState extends ConsumerState<MapScreen> {
   final _mapController = MapController();
   double _currentZoom = 7.0;
+  LatLng? _currentLocation;
+  bool _loadingLocation = false;
+
+  Future<void> _goToCurrentLocation() async {
+    if (_loadingLocation) return;
+    setState(() => _loadingLocation = true);
+    try {
+      LocationPermission perm = await Geolocator.checkPermission();
+      if (perm == LocationPermission.denied) {
+        perm = await Geolocator.requestPermission();
+      }
+      if (perm == LocationPermission.denied || perm == LocationPermission.deniedForever) {
+        if (mounted) {
+          setState(() => _loadingLocation = false);
+          if (perm == LocationPermission.deniedForever) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('설정에서 위치 권한을 허용해 주세요.')),
+            );
+          }
+        }
+        return;
+      }
+      final pos = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+      );
+      if (mounted) {
+        final latLng = LatLng(pos.latitude, pos.longitude);
+        setState(() {
+          _currentLocation = latLng;
+          _loadingLocation = false;
+        });
+        _mapController.move(latLng, 14.0);
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loadingLocation = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
