@@ -32,6 +32,16 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     if (_loadingLocation) return;
     setState(() => _loadingLocation = true);
     try {
+      final isEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!isEnabled) {
+        if (mounted) {
+          setState(() => _loadingLocation = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('기기의 위치 서비스를 활성화해 주세요.')),
+          );
+        }
+        return;
+      }
       LocationPermission perm = await Geolocator.checkPermission();
       if (perm == LocationPermission.denied) {
         perm = await Geolocator.requestPermission();
@@ -49,6 +59,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       }
       final pos = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
+        timeLimit: const Duration(seconds: 15),
       );
       if (mounted) {
         final latLng = LatLng(pos.latitude, pos.longitude);
@@ -59,7 +70,12 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         _mapController.move(latLng, 14.0);
       }
     } catch (_) {
-      if (mounted) setState(() => _loadingLocation = false);
+      if (mounted) {
+        setState(() => _loadingLocation = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('위치를 가져올 수 없어요.')),
+        );
+      }
     }
   }
 
