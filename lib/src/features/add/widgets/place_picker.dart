@@ -72,6 +72,16 @@ class _PlacePickerContentState extends State<_PlacePickerContent> {
     if (_loadingLocation) return;
     setState(() => _loadingLocation = true);
     try {
+      final isEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!isEnabled) {
+        if (mounted) {
+          setState(() => _loadingLocation = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('기기의 위치 서비스를 활성화해 주세요.')),
+          );
+        }
+        return;
+      }
       LocationPermission perm = await Geolocator.checkPermission();
       if (perm == LocationPermission.denied) {
         perm = await Geolocator.requestPermission();
@@ -89,6 +99,7 @@ class _PlacePickerContentState extends State<_PlacePickerContent> {
       }
       final pos = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
+        timeLimit: const Duration(seconds: 15),
       );
       if (mounted) {
         final place = PlaceConstants.findNearestDatePlace(pos.latitude, pos.longitude);
