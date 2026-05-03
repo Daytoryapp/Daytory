@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:date_app/src/core/constants/app_constants.dart';
 import 'package:date_app/src/core/widgets/mood_widget.dart';
 import 'package:date_app/src/features/auth/profile_setup_screen.dart';
+import 'package:date_app/src/features/couple/couple_link_screen.dart';
 import 'package:date_app/src/models/user_profile.dart';
 import 'package:date_app/src/state/auth_state.dart';
 import 'package:date_app/src/state/date_log_state.dart';
@@ -58,9 +59,11 @@ class MypageScreen extends ConsumerWidget {
                 const _SectionTitle(title: '파트너'),
                 const SizedBox(height: 12),
                 _PartnerCard(
-                  userImageUrl: profile?.kakaoProfileImageUrl,
-                  avatarEmoji: profile?.avatarEmoji ?? '🐰',
-                  onInvite: () => _showComingSoon(context, '초대 코드 기능은 준비 중이에요'),
+                  profile: profile,
+                  onUnlink: () => _confirmUnlink(context, ref),
+                  onLink: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(builder: (_) => const CoupleLinkScreen()),
+                  ),
                 ),
               ],
             ),
@@ -181,8 +184,21 @@ class MypageScreen extends ConsumerWidget {
     return freq.entries.reduce((a, b) => a.value >= b.value ? a : b).key;
   }
 
-  void _showComingSoon(BuildContext context, String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  Future<void> _confirmUnlink(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('연결 해제'),
+        content: const Text('파트너와의 연결을 해제할까요?\n기록은 삭제되지 않아요.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('취소', style: TextStyle(color: AppConstants.textSecondary))),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('해제', style: TextStyle(color: AppConstants.pink, fontWeight: FontWeight.w600))),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      await ref.read(authStateProvider.notifier).unlinkPartner();
+    }
   }
 
   Future<void> _confirmLogout(BuildContext context, WidgetRef ref) async {
@@ -406,13 +422,67 @@ class _AnniversaryBadge extends StatelessWidget {
 
 // ── 파트너 카드 ─────────────────────────────────────────────────────────────
 class _PartnerCard extends StatelessWidget {
-  const _PartnerCard({required this.onInvite, this.userImageUrl, this.avatarEmoji = '🐰'});
-  final VoidCallback onInvite;
-  final String? userImageUrl;
-  final String avatarEmoji;
+  const _PartnerCard({required this.profile, required this.onUnlink, required this.onLink});
+  final UserProfile? profile;
+  final VoidCallback onUnlink;
+  final VoidCallback onLink;
+
+  Widget _avatar({
+    required String? imageUrl,
+    required String emoji,
+    required Color borderColor,
+    required Color bgColor,
+  }) {
+    return Container(
+      width: 56,
+      height: 56,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: bgColor,
+        border: Border.all(color: borderColor, width: 2),
+      ),
+      child: ClipOval(
+        child: imageUrl != null
+            ? CachedNetworkImage(
+                imageUrl: imageUrl,
+                fit: BoxFit.cover,
+                errorWidget: (_, __, ___) => Center(child: Text(emoji, style: const TextStyle(fontSize: 28))),
+              )
+            : Center(child: Text(emoji, style: const TextStyle(fontSize: 28))),
+      ),
+    );
+  }
+
+  Widget _dottedConnector() {
+    return Expanded(
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(
+              8,
+              (i) => Container(
+                width: 4,
+                height: 2,
+                margin: const EdgeInsets.symmetric(horizontal: 2),
+                decoration: BoxDecoration(
+                  color: AppConstants.pinkMid,
+                  borderRadius: BorderRadius.circular(1),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 4),
+          const Text('💕', style: TextStyle(fontSize: 14)),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    final isLinked = profile?.isLinked ?? false;
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -425,68 +495,64 @@ class _PartnerCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // 내 아바타
-              Container(
-                width: 56, height: 56,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: AppConstants.pinkLight,
-                  border: Border.all(color: AppConstants.pinkMid, width: 2),
-                ),
-                child: ClipOval(
-                  child: userImageUrl != null
-                      ? CachedNetworkImage(imageUrl: userImageUrl!, fit: BoxFit.cover, errorWidget: (_, __, ___) => Center(child: Text(avatarEmoji, style: const TextStyle(fontSize: 28))))
-                      : Center(child: Text(avatarEmoji, style: const TextStyle(fontSize: 28))),
-                ),
+              _avatar(
+                imageUrl: profile?.kakaoProfileImageUrl,
+                emoji: profile?.avatarEmoji ?? '🐰',
+                borderColor: AppConstants.pinkMid,
+                bgColor: AppConstants.pinkLight,
               ),
-
-              // 점선 + 하트
-              Expanded(
-                child: Column(
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: List.generate(8, (i) => Container(
-                        width: 4, height: 2,
-                        margin: const EdgeInsets.symmetric(horizontal: 2),
-                        decoration: BoxDecoration(color: AppConstants.pinkMid, borderRadius: BorderRadius.circular(1)),
-                      )),
-                    ),
-                    const SizedBox(height: 4),
-                    const Text('💕', style: TextStyle(fontSize: 14)),
-                  ],
+              _dottedConnector(),
+              if (isLinked)
+                _avatar(
+                  imageUrl: profile?.partnerProfileImageUrl,
+                  emoji: profile?.partnerAvatarEmoji ?? '🐰',
+                  borderColor: AppConstants.pinkMid,
+                  bgColor: AppConstants.pinkLight,
+                )
+              else
+                Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: AppConstants.surface,
+                    border: Border.all(color: AppConstants.border, width: 2),
+                  ),
+                  child: const Icon(Icons.person_add_rounded, size: 24, color: AppConstants.textSecondary),
                 ),
-              ),
-
-              // 파트너 플레이스홀더
-              Container(
-                width: 56, height: 56,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: AppConstants.surface,
-                  border: Border.all(color: AppConstants.border, width: 2),
-                ),
-                child: const Icon(Icons.person_add_rounded, size: 24, color: AppConstants.textSecondary),
-              ),
             ],
           ),
           const SizedBox(height: 14),
-          const Text(
-            '아직 연결된 파트너가 없어요',
-            style: TextStyle(fontSize: 14, color: AppConstants.textSecondary, fontWeight: FontWeight.w500),
+          Text(
+            isLinked
+                ? (profile?.partnerNickname ?? '파트너')
+                : '아직 연결된 파트너가 없어요',
+            style: const TextStyle(fontSize: 14, color: AppConstants.textSecondary, fontWeight: FontWeight.w500),
           ),
           const SizedBox(height: 14),
-          OutlinedButton.icon(
-            onPressed: onInvite,
-            icon: const Icon(Icons.link_rounded, size: 16),
-            label: const Text('초대 코드 공유하기'),
-            style: OutlinedButton.styleFrom(
-              minimumSize: const Size(double.infinity, 44),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppConstants.radiusM)),
-              side: const BorderSide(color: AppConstants.pinkMid),
-              foregroundColor: AppConstants.pink,
+          if (isLinked)
+            OutlinedButton(
+              onPressed: onUnlink,
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(double.infinity, 44),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppConstants.radiusM)),
+                side: const BorderSide(color: AppConstants.pink),
+                foregroundColor: AppConstants.pink,
+              ),
+              child: const Text('연결 해제'),
+            )
+          else
+            FilledButton.icon(
+              onPressed: onLink,
+              icon: const Icon(Icons.link_rounded, size: 16),
+              label: const Text('초대 코드로 연동하기'),
+              style: FilledButton.styleFrom(
+                minimumSize: const Size(double.infinity, 44),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppConstants.radiusM)),
+                backgroundColor: AppConstants.pink,
+                foregroundColor: Colors.white,
+              ),
             ),
-          ),
         ],
       ),
     );

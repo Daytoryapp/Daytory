@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:date_app/src/models/user_profile.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -35,6 +37,12 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
+  static String _generateInviteCode() {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    final rand = Random.secure();
+    return List.generate(6, (_) => chars[rand.nextInt(chars.length)]).join();
+  }
+
   Future<void> onKakaoLoginSuccess(kakao.User kakaoUser) async {
     final kProfile = kakaoUser.kakaoAccount?.profile;
     final kakaoId = kakaoUser.id.toString();
@@ -46,12 +54,39 @@ class AuthNotifier extends StateNotifier<AuthState> {
       'profile_image': kProfile?.profileImageUrl,
     }, onConflict: 'kakao_id');
 
-    // Supabase에서 기존 프로필 조회 (couple_nickname, anniversary 포함)
+    // Supabase에서 기존 프로필 조회
     final existing = await Supabase.instance.client
         .from('users')
         .select()
         .eq('kakao_id', kakaoId)
         .maybeSingle();
+
+    // invite_code가 없으면 생성 후 저장
+    String? inviteCode = existing?['invite_code'] as String?;
+    if (inviteCode == null || inviteCode.isEmpty) {
+      inviteCode = _generateInviteCode();
+      await Supabase.instance.client
+          .from('users')
+          .update({'invite_code': inviteCode})
+          .eq('kakao_id', kakaoId);
+    }
+
+    // 파트너 정보 조회
+    final String? partnerKakaoId = existing?['partner_kakao_id'] as String?;
+    String? partnerNickname;
+    String? partnerProfileImageUrl;
+    String? partnerGender;
+
+    if (partnerKakaoId != null) {
+      final partnerRow = await Supabase.instance.client
+          .from('users')
+          .select()
+          .eq('kakao_id', partnerKakaoId)
+          .maybeSingle();
+      partnerNickname = partnerRow?['nickname'] as String?;
+      partnerProfileImageUrl = partnerRow?['profile_image'] as String?;
+      partnerGender = partnerRow?['gender'] as String?;
+    }
 
     final userProfile = UserProfile(
       kakaoId: kakaoId,
@@ -66,6 +101,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
       birthdate: existing?['birthdate'] != null
           ? DateTime.tryParse(existing!['birthdate'] as String)
           : null,
+      inviteCode: inviteCode,
+      partnerKakaoId: partnerKakaoId,
+      partnerNickname: partnerNickname,
+      partnerProfileImageUrl: partnerProfileImageUrl,
+      partnerGender: partnerGender,
     );
 
     await _box.put('data', userProfile.toMap());
@@ -109,6 +149,84 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
     await _box.put('data', updated.toMap());
     state = AuthState(status: AuthStatus.ready, profile: updated);
+  }
+
+  /// 파트너 초대 코드로 연동. 성공 시 null 반환, 실패 시 에러 메시지 반환.
+  Future<String?> linkPartner(String code) async {
+    final normalizedCode = code.trim().toUpperCase();
+    final myKakaoId = state.profile?.kakaoId;
+    if (myKakaoId == null) return '로그인이 필요해요';
+
+    final partnerRow = await Supabase.instance.client
+        .from('users')
+        .select()
+        .eq('invite_code', normalizedCode)
+        .maybeSingle();
+
+    if (partnerRow == null) return '코드를 찾을 수 없어요';
+
+    final String partnerId = partnerRow['kakao_id'] as String;
+
+    if (partnerId == myKakaoId) return '본인 코드는 사용할 수 없어요';
+
+    final String? partnerExistingPartnerId = partnerRow['partner_kakao_id'] as String?;
+    if (partnerExistingPartnerId != null && partnerExistingPartnerId != myKakaoId) {
+      return '이미 다른 파트너와 연결된 코드예요';
+    }
+
+    // 내 row 업데이트
+    await Supabase.instance.client
+        .from('users')
+        .update({'partner_kakao_id': partnerId})
+        .eq('kakao_id', myKakaoId);
+
+    // 상대 row 업데이트
+    await Supabase.instance.client
+        .from('users')
+        .update({'partner_kakao_id': myKakaoId})
+        .eq('kakao_id', partnerId);
+
+    final String? partnerNickname = partnerRow['nickname'] as String?;
+    final String? partnerProfileImageUrl = partnerRow['profile_image'] as String?;
+    final String? partnerGender = partnerRow['gender'] as String?;
+
+    final updated = state.profile!.copyWith(
+      partnerKakaoId: partnerId,
+      partnerNickname: partnerNickname,
+      partnerProfileImageUrl: partnerProfileImageUrl,
+      partnerGender: partnerGender,
+    );
+
+    await _box.put('data', updated.toMap());
+    state = AuthState(status: state.status, profile: updated);
+
+    return null;
+  }
+
+  /// 파트너 연결 해제.
+  Future<void> unlinkPartner() async {
+    final myKakaoId = state.profile?.kakaoId;
+    final partnerKakaoId = state.profile?.partnerKakaoId;
+    if (myKakaoId == null) return;
+
+    // 내 row에서 파트너 제거
+    await Supabase.instance.client
+        .from('users')
+        .update({'partner_kakao_id': null})
+        .eq('kakao_id', myKakaoId);
+
+    // 상대 row에서도 나를 가리키고 있으면 제거
+    if (partnerKakaoId != null) {
+      await Supabase.instance.client
+          .from('users')
+          .update({'partner_kakao_id': null})
+          .eq('kakao_id', partnerKakaoId)
+          .eq('partner_kakao_id', myKakaoId);
+    }
+
+    final updated = state.profile!.copyWith(clearPartner: true);
+    await _box.put('data', updated.toMap());
+    state = AuthState(status: state.status, profile: updated);
   }
 
   Future<void> logout() async {

@@ -20,14 +20,33 @@ class DateLogRepository {
     return raw['kakaoId'] as String?;
   }
 
+  String? get _partnerKakaoId {
+    final box = Hive.box<Map>('user_profile');
+    final raw = box.get('data');
+    if (raw == null) return null;
+    return Map<String, dynamic>.from(raw)['partnerKakaoId'] as String?;
+  }
+
   Future<List<DateLog>> getAll() async {
     final id = _kakaoId;
     if (id == null) return [];
-    final rows = await _client
-        .from('date_logs')
-        .select()
-        .eq('kakao_id', id)
-        .order('started_at', ascending: false);
+
+    final partnerId = _partnerKakaoId;
+
+    final List<Map<String, dynamic>> rows;
+    if (partnerId != null) {
+      rows = await _client
+          .from('date_logs')
+          .select()
+          .or('kakao_id.eq.$id,kakao_id.eq.$partnerId')
+          .order('started_at', ascending: false);
+    } else {
+      rows = await _client
+          .from('date_logs')
+          .select()
+          .eq('kakao_id', id)
+          .order('started_at', ascending: false);
+    }
     return rows.map((r) => DateLog.fromSupabase(r)).toList();
   }
 
