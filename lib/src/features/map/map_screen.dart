@@ -14,7 +14,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart';
 
-
 class MapScreen extends ConsumerStatefulWidget {
   const MapScreen({super.key});
 
@@ -83,9 +82,14 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   Widget build(BuildContext context) {
     final allLogs = ref.watch(dateLogControllerProvider);
     final categoryFilter = ref.watch(mapCategoryFilterProvider);
-    final logs = categoryFilter == null
-        ? allLogs
-        : allLogs.where((l) => l.tags.contains(categoryFilter)).toList();
+    final moodFilter = ref.watch(moodFilterProvider);
+    final hasFilter = categoryFilter != null || moodFilter != null;
+
+    final logs = allLogs.where((l) {
+      if (categoryFilter != null && !l.tags.contains(categoryFilter)) return false;
+      if (moodFilter != null && l.moodScore != moodFilter) return false;
+      return true;
+    }).toList();
 
     final markers = logs.map((log) {
       return Marker(
@@ -154,34 +158,33 @@ class _MapScreenState extends ConsumerState<MapScreen> {
           left: 0,
           right: 0,
           child: SafeArea(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(AppConstants.radiusXL),
-                          boxShadow: [BoxShadow(color: Colors.black.withAlpha(20), blurRadius: 12, offset: const Offset(0, 2))],
-                        ),
-                        child: const Text('지도', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppConstants.textPrimary)),
-                      ),
-                      const Spacer(),
-                      _MapIconButton(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(AppConstants.radiusXL),
+                      boxShadow: [BoxShadow(color: Colors.black.withAlpha(20), blurRadius: 12, offset: const Offset(0, 2))],
+                    ),
+                    child: const Text('지도', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppConstants.textPrimary)),
+                  ),
+                  const Spacer(),
+                  _FilterButton(
+                    categoryFilter: categoryFilter,
+                    moodFilter: moodFilter,
+                    hasFilter: hasFilter,
+                    onTap: () => _showFilterSheet(context),
+                  ),
+                  const SizedBox(width: 8),
+                  _MapIconButton(
                     icon: _loadingLocation ? Icons.sync : Icons.my_location_rounded,
                     onTap: _goToCurrentLocation,
                   ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 8),
-                const _CategoryFilterBar(),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -196,9 +199,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                 boxShadow: [BoxShadow(color: Colors.black.withAlpha(20), blurRadius: 12)],
               ),
               child: Text(
-                categoryFilter != null
-                    ? "'$categoryFilter' 기록이 없어요"
-                    : '기록을 추가하면 지도에 표시돼요',
+                hasFilter ? '조건에 맞는 기록이 없어요' : '기록을 추가하면 지도에 표시돼요',
                 style: const TextStyle(fontSize: 14, color: AppConstants.textSecondary),
               ),
             ),
@@ -215,6 +216,339 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(AppConstants.radiusXL)),
       ),
       builder: (_) => _MapLogPreview(logId: logId),
+    );
+  }
+
+  void _showFilterSheet(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.white,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(AppConstants.radiusXL)),
+      ),
+      builder: (_) => const _FilterBottomSheet(),
+    );
+  }
+}
+
+// ── 필터 버튼 ──────────────────────────────────────────────────────────────────
+class _FilterButton extends StatelessWidget {
+  const _FilterButton({
+    required this.categoryFilter,
+    required this.moodFilter,
+    required this.hasFilter,
+    required this.onTap,
+  });
+  final String? categoryFilter;
+  final int? moodFilter;
+  final bool hasFilter;
+  final VoidCallback onTap;
+
+  String get _label {
+    final parts = <String>[];
+    if (categoryFilter != null) {
+      final emoji = AppConstants.categoryEmojis[categoryFilter] ?? '';
+      parts.add('$emoji $categoryFilter');
+    }
+    if (moodFilter != null) {
+      parts.add(AppConstants.moodLabels[moodFilter!]);
+    }
+    return parts.isEmpty ? '필터' : parts.join(' · ');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: hasFilter ? AppConstants.pink : Colors.white,
+          borderRadius: BorderRadius.circular(AppConstants.radiusXL),
+          boxShadow: [BoxShadow(color: Colors.black.withAlpha(20), blurRadius: 12, offset: const Offset(0, 2))],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.tune_rounded,
+              size: 16,
+              color: hasFilter ? Colors.white : AppConstants.textPrimary,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              _label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: hasFilter ? Colors.white : AppConstants.textPrimary,
+              ),
+            ),
+            if (hasFilter) ...[
+              const SizedBox(width: 4),
+              const Icon(Icons.expand_more_rounded, size: 16, color: Colors.white),
+            ] else ...[
+              const SizedBox(width: 4),
+              const Icon(Icons.expand_more_rounded, size: 16, color: AppConstants.textSecondary),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── 필터 바텀시트 ──────────────────────────────────────────────────────────────
+class _FilterBottomSheet extends ConsumerStatefulWidget {
+  const _FilterBottomSheet();
+
+  @override
+  ConsumerState<_FilterBottomSheet> createState() => _FilterBottomSheetState();
+}
+
+class _FilterBottomSheetState extends ConsumerState<_FilterBottomSheet> {
+  String? _tempCategory;
+  int? _tempMood;
+
+  @override
+  void initState() {
+    super.initState();
+    _tempCategory = ref.read(mapCategoryFilterProvider);
+    _tempMood = ref.read(moodFilterProvider);
+  }
+
+  void _apply() {
+    ref.read(mapCategoryFilterProvider.notifier).state = _tempCategory;
+    ref.read(moodFilterProvider.notifier).state = _tempMood;
+    Navigator.of(context).pop();
+  }
+
+  void _reset() {
+    setState(() {
+      _tempCategory = null;
+      _tempMood = null;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final hasAny = _tempCategory != null || _tempMood != null;
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 핸들
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: Container(
+                  width: 36, height: 4,
+                  decoration: BoxDecoration(color: AppConstants.border, borderRadius: BorderRadius.circular(2)),
+                ),
+              ),
+            ),
+
+            // 헤더
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+              child: Row(
+                children: [
+                  const Text('필터', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppConstants.textPrimary)),
+                  const Spacer(),
+                  if (hasAny)
+                    TextButton(
+                      onPressed: _reset,
+                      child: const Text('초기화', style: TextStyle(color: AppConstants.textSecondary, fontSize: 14)),
+                    ),
+                ],
+              ),
+            ),
+
+            const Divider(height: 20),
+
+            // 카테고리
+            const Padding(
+              padding: EdgeInsets.fromLTRB(20, 0, 20, 12),
+              child: Text('카테고리', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppConstants.textSecondary)),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _FilterChip(
+                    label: '전체',
+                    emoji: null,
+                    isSelected: _tempCategory == null,
+                    onTap: () => setState(() => _tempCategory = null),
+                  ),
+                  ...AppConstants.categoryList.map((cat) => _FilterChip(
+                    label: cat,
+                    emoji: AppConstants.categoryEmojis[cat],
+                    isSelected: _tempCategory == cat,
+                    onTap: () => setState(() => _tempCategory = _tempCategory == cat ? null : cat),
+                  )),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 20),
+            const Divider(height: 1),
+            const SizedBox(height: 16),
+
+            // 감정
+            const Padding(
+              padding: EdgeInsets.fromLTRB(20, 0, 20, 12),
+              child: Text('감정', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppConstants.textSecondary)),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: [
+                  _MoodFilterChip(
+                    label: '전체',
+                    moodScore: null,
+                    isSelected: _tempMood == null,
+                    onTap: () => setState(() => _tempMood = null),
+                  ),
+                  const SizedBox(width: 6),
+                  ...List.generate(5, (i) {
+                    final mood = i + 1;
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 6),
+                      child: _MoodFilterChip(
+                        label: AppConstants.moodLabels[mood],
+                        moodScore: mood,
+                        isSelected: _tempMood == mood,
+                        onTap: () => setState(() => _tempMood = _tempMood == mood ? null : mood),
+                      ),
+                    );
+                  }),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 24),
+
+            // 적용 버튼
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+              child: FilledButton(
+                onPressed: _apply,
+                child: const Text('적용하기'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FilterChip extends StatelessWidget {
+  const _FilterChip({
+    required this.label,
+    required this.emoji,
+    required this.isSelected,
+    required this.onTap,
+  });
+  final String label;
+  final String? emoji;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 120),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? AppConstants.pinkLight : AppConstants.surface,
+          borderRadius: BorderRadius.circular(AppConstants.radiusM),
+          border: Border.all(
+            color: isSelected ? AppConstants.pink : Colors.transparent,
+            width: 1.5,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (emoji != null) ...[
+              Text(emoji!, style: const TextStyle(fontSize: 13)),
+              const SizedBox(width: 4),
+            ],
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                color: isSelected ? AppConstants.pink : AppConstants.textSecondary,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MoodFilterChip extends StatelessWidget {
+  const _MoodFilterChip({
+    required this.label,
+    required this.moodScore,
+    required this.isSelected,
+    required this.onTap,
+  });
+  final String label;
+  final int? moodScore;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 120),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? AppConstants.pinkLight : AppConstants.surface,
+          borderRadius: BorderRadius.circular(AppConstants.radiusM),
+          border: Border.all(
+            color: isSelected ? AppConstants.pink : Colors.transparent,
+            width: 1.5,
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (moodScore != null)
+              MoodWidget(moodScore: moodScore!, size: 22)
+            else
+              const Text('전체', style: TextStyle(fontSize: 13, color: AppConstants.textSecondary)),
+            if (moodScore != null) ...[
+              const SizedBox(height: 2),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                  color: isSelected ? AppConstants.pink : AppConstants.textSecondary,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }
@@ -270,94 +604,25 @@ class _ClusterMarker extends StatelessWidget {
   }
 }
 
-// ── 카테고리 필터 바 ───────────────────────────────────────────────────────────
-class _CategoryFilterBar extends ConsumerWidget {
-  const _CategoryFilterBar();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final selected = ref.watch(mapCategoryFilterProvider);
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
-      child: Row(
-        children: [
-          _CategoryChip(
-            label: '전체',
-            emoji: null,
-            isSelected: selected == null,
-            selectedBgColor: AppConstants.pink,
-            onTap: () => ref.read(mapCategoryFilterProvider.notifier).state = null,
-          ),
-          const SizedBox(width: 6),
-          ...AppConstants.categoryList.expand((cat) {
-            final colors = AppConstants.categoryMarkerColors[cat];
-            final selectedBg = colors?[1] ?? AppConstants.pink;
-            return [
-              _CategoryChip(
-                label: cat,
-                emoji: AppConstants.categoryEmojis[cat],
-                isSelected: selected == cat,
-                selectedBgColor: selectedBg,
-                onTap: () {
-                  ref.read(mapCategoryFilterProvider.notifier).state =
-                      selected == cat ? null : cat;
-                },
-              ),
-              const SizedBox(width: 6),
-            ];
-          }),
-        ],
-      ),
-    );
-  }
-}
-
-class _CategoryChip extends StatelessWidget {
-  const _CategoryChip({
-    required this.label,
-    required this.emoji,
-    required this.isSelected,
-    required this.selectedBgColor,
-    required this.onTap,
-  });
-  final String label;
-  final String? emoji;
-  final bool isSelected;
-  final Color selectedBgColor;
+// ── 공통 위젯 ───────────────────────────────────────────────────────────────
+class _MapIconButton extends StatelessWidget {
+  const _MapIconButton({required this.icon, required this.onTap});
+  final IconData icon;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+      child: Container(
+        width: 44,
+        height: 44,
         decoration: BoxDecoration(
-          color: isSelected ? selectedBgColor : Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(color: Colors.black.withAlpha(15), blurRadius: 6, offset: const Offset(0, 1)),
-          ],
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(AppConstants.radiusM),
+          boxShadow: [BoxShadow(color: Colors.black.withAlpha(20), blurRadius: 12, offset: const Offset(0, 2))],
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (emoji != null) ...[
-              Text(emoji!, style: const TextStyle(fontSize: 13)),
-              const SizedBox(width: 4),
-            ],
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                color: isSelected ? Colors.white : AppConstants.textPrimary,
-              ),
-            ),
-          ],
-        ),
+        child: Icon(icon, size: 20, color: AppConstants.textPrimary),
       ),
     );
   }
@@ -487,7 +752,6 @@ class _MarkerBg extends StatelessWidget {
   }
 }
 
-// 말풍선 꼬리
 class _TailPainter extends CustomPainter {
   const _TailPainter({required this.color});
   final Color color;
@@ -504,30 +768,6 @@ class _TailPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_TailPainter old) => old.color != color;
-}
-
-// ── 공통 위젯 ───────────────────────────────────────────────────────────────
-class _MapIconButton extends StatelessWidget {
-  const _MapIconButton({required this.icon, required this.onTap});
-  final IconData icon;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 44,
-        height: 44,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(AppConstants.radiusM),
-          boxShadow: [BoxShadow(color: Colors.black.withAlpha(20), blurRadius: 12, offset: const Offset(0, 2))],
-        ),
-        child: Icon(icon, size: 20, color: AppConstants.textPrimary),
-      ),
-    );
-  }
 }
 
 // ── 바텀시트 프리뷰 ──────────────────────────────────────────────────────────
