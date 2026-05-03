@@ -14,12 +14,11 @@ const _testPlace = DatePlace(
 
 void main() {
   test('DateLogRepository provider type is correct', () {
-    // Provider 타입이 DateLogRepository임을 컴파일 타임에 검증
     expect(dateLogRepositoryProvider, isNotNull);
   });
 
   group('DateLog.fromSupabase', () {
-    test('parses row correctly', () {
+    test('parses row correctly (flat columns fallback)', () {
       final now = DateTime.now().toUtc();
       final row = <String, dynamic>{
         'id': 'test-id',
@@ -43,6 +42,32 @@ void main() {
       expect(log.totalCost, 50000.0);
       expect(log.tags, ['카페', '산책']);
       expect(log.place.sido, '서울특별시');
+    });
+
+    test('parses places JSONB column when present', () {
+      final now = DateTime.now().toUtc();
+      final row = <String, dynamic>{
+        'id': 'test-id',
+        'title': null,
+        'started_at': now.toIso8601String(),
+        'ended_at': now.add(const Duration(hours: 2)).toIso8601String(),
+        'memo': '메모',
+        'mood_score': 3,
+        'total_cost': 0,
+        'sido': '서울특별시',
+        'sigungu': '마포구',
+        'latitude': 37.5638,
+        'longitude': 126.9085,
+        'places': [
+          {'sido': '서울특별시', 'sigungu': '마포구', 'latitude': 37.5638, 'longitude': 126.9085},
+          {'sido': '서울특별시', 'sigungu': '강남구', 'latitude': 37.4979, 'longitude': 127.0276},
+        ],
+        'tags': <String>[],
+        'photo_urls': <String>[],
+      };
+      final log = DateLog.fromSupabase(row);
+      expect(log.places.length, 2);
+      expect(log.places[1].sigungu, '강남구');
     });
 
     test('handles null optional fields', () {
@@ -72,7 +97,7 @@ void main() {
   });
 
   group('DateLog.toSupabase', () {
-    test('serializes correctly', () {
+    test('serializes correctly with places', () {
       final now = DateTime.now();
       final log = DateLog(
         id: 'log-id',
@@ -82,7 +107,7 @@ void main() {
         memo: '메모',
         moodScore: 5,
         totalCost: 30000,
-        place: _testPlace,
+        places: const [_testPlace],
         tags: const ['영화'],
         photos: const [],
       );
@@ -92,6 +117,7 @@ void main() {
       expect(map['mood_score'], 5);
       expect(map['sido'], '서울특별시');
       expect(map['tags'], ['영화']);
+      expect((map['places'] as List).length, 1);
     });
   });
 }

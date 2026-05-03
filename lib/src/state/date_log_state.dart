@@ -30,7 +30,7 @@ class DateLogController extends StateNotifier<List<DateLog>> {
     required String memo,
     required int moodScore,
     required double totalCost,
-    required DatePlace place,
+    required List<DatePlace> places,
     required List<String> tags,
     required List<String> photos,
   }) async {
@@ -41,7 +41,7 @@ class DateLogController extends StateNotifier<List<DateLog>> {
       memo: memo,
       moodScore: moodScore,
       totalCost: totalCost,
-      place: place,
+      places: places,
       tags: tags,
       photos: photos,
     );
