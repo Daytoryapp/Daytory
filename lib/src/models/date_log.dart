@@ -8,11 +8,11 @@ class DateLog {
     required this.memo,
     required this.moodScore,
     required this.totalCost,
-    required this.place,
+    required this.places,
     required this.tags,
     required this.photos,
     this.title,
-  });
+  }) : assert(places.isNotEmpty);
 
   final String id;
   final String? title;
@@ -21,13 +21,16 @@ class DateLog {
   final String memo;
   final int moodScore;
   final double totalCost;
-  final DatePlace place;
+  final List<DatePlace> places;
   final List<String> tags;
-  final List<String> photos; // file paths (mobile) or blob URLs (web)
+  final List<String> photos;
 
-  String get placeName => place.displayName;
-  double get latitude => place.latitude;
-  double get longitude => place.longitude;
+  DatePlace get place => places.first;
+  String get placeName => places.length == 1
+      ? places.first.displayName
+      : '${places.first.displayName} 외 ${places.length - 1}곳';
+  double get latitude => places.first.latitude;
+  double get longitude => places.first.longitude;
 
   String get dayKey =>
       '${startedAt.year.toString().padLeft(4, '0')}-${startedAt.month.toString().padLeft(2, '0')}-${startedAt.day.toString().padLeft(2, '0')}';
@@ -43,41 +46,64 @@ class DateLog {
         'memo': memo,
         'moodScore': moodScore,
         'totalCost': totalCost,
-        'place': place.toMap(),
+        'places': places.map((p) => p.toMap()).toList(),
         'tags': tags,
         'photos': photos,
       };
 
-  factory DateLog.fromMap(Map<String, dynamic> map) => DateLog(
-        id: map['id'] as String,
-        title: map['title'] as String?,
-        startedAt: DateTime.parse(map['startedAt'] as String),
-        endedAt: DateTime.parse(map['endedAt'] as String),
-        memo: map['memo'] as String,
-        moodScore: map['moodScore'] as int,
-        totalCost: (map['totalCost'] as num).toDouble(),
-        place: DatePlace.fromMap(Map<String, dynamic>.from(map['place'] as Map)),
-        tags: List<String>.from(map['tags'] as List),
-        photos: List<String>.from(map['photos'] as List),
-      );
+  factory DateLog.fromMap(Map<String, dynamic> map) {
+    final List<DatePlace> places;
+    if (map['places'] != null) {
+      places = (map['places'] as List)
+          .map((p) => DatePlace.fromMap(Map<String, dynamic>.from(p as Map)))
+          .toList();
+    } else {
+      places = [DatePlace.fromMap(Map<String, dynamic>.from(map['place'] as Map))];
+    }
+    return DateLog(
+      id: map['id'] as String,
+      title: map['title'] as String?,
+      startedAt: DateTime.parse(map['startedAt'] as String),
+      endedAt: DateTime.parse(map['endedAt'] as String),
+      memo: map['memo'] as String,
+      moodScore: map['moodScore'] as int,
+      totalCost: (map['totalCost'] as num).toDouble(),
+      places: places,
+      tags: List<String>.from(map['tags'] as List),
+      photos: List<String>.from(map['photos'] as List),
+    );
+  }
 
-  factory DateLog.fromSupabase(Map<String, dynamic> row) => DateLog(
-        id: row['id'] as String,
-        title: row['title'] as String?,
-        startedAt: DateTime.parse(row['started_at'] as String).toLocal(),
-        endedAt: DateTime.parse(row['ended_at'] as String).toLocal(),
-        memo: row['memo'] as String? ?? '',
-        moodScore: row['mood_score'] as int,
-        totalCost: (row['total_cost'] as num).toDouble(),
-        place: DatePlace(
+  factory DateLog.fromSupabase(Map<String, dynamic> row) {
+    final List<DatePlace> places;
+    final rawPlaces = row['places'];
+    if (rawPlaces != null && rawPlaces is List && rawPlaces.isNotEmpty) {
+      places = rawPlaces
+          .map((p) => DatePlace.fromMap(Map<String, dynamic>.from(p as Map)))
+          .toList();
+    } else {
+      places = [
+        DatePlace(
           sido: row['sido'] as String? ?? '',
           sigungu: row['sigungu'] as String? ?? '',
           latitude: (row['latitude'] as num?)?.toDouble() ?? 0,
           longitude: (row['longitude'] as num?)?.toDouble() ?? 0,
         ),
-        tags: List<String>.from((row['tags'] as List?) ?? []),
-        photos: List<String>.from((row['photo_urls'] as List?) ?? []),
-      );
+      ];
+    }
+    return DateLog(
+      id: row['id'] as String,
+      title: row['title'] as String?,
+      startedAt: DateTime.parse(row['started_at'] as String).toLocal(),
+      endedAt: DateTime.parse(row['ended_at'] as String).toLocal(),
+      memo: row['memo'] as String? ?? '',
+      moodScore: row['mood_score'] as int,
+      totalCost: (row['total_cost'] as num).toDouble(),
+      places: places,
+      tags: List<String>.from((row['tags'] as List?) ?? []),
+      photos: List<String>.from((row['photo_urls'] as List?) ?? []),
+    );
+  }
 
   Map<String, dynamic> toSupabase(String kakaoId) => {
         'id': id,
@@ -88,10 +114,13 @@ class DateLog {
         'memo': memo,
         'mood_score': moodScore,
         'total_cost': totalCost,
-        'sido': place.sido,
-        'sigungu': place.sigungu,
-        'latitude': place.latitude,
-        'longitude': place.longitude,
+        // 첫 번째 장소 — 기존 컬럼 호환성 유지
+        'sido': places.first.sido,
+        'sigungu': places.first.sigungu,
+        'latitude': places.first.latitude,
+        'longitude': places.first.longitude,
+        // 전체 코스
+        'places': places.map((p) => p.toMap()).toList(),
         'tags': tags,
         'photo_urls': photos,
       };
@@ -104,7 +133,7 @@ class DateLog {
     String? memo,
     int? moodScore,
     double? totalCost,
-    DatePlace? place,
+    List<DatePlace>? places,
     List<String>? tags,
     List<String>? photos,
   }) {
@@ -116,7 +145,7 @@ class DateLog {
       memo: memo ?? this.memo,
       moodScore: moodScore ?? this.moodScore,
       totalCost: totalCost ?? this.totalCost,
-      place: place ?? this.place,
+      places: places ?? this.places,
       tags: tags ?? this.tags,
       photos: photos ?? this.photos,
     );

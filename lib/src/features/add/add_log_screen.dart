@@ -24,7 +24,7 @@ class _AddLogScreenState extends ConsumerState<AddLogScreen> {
   final _memoController = TextEditingController();
   final _costController = TextEditingController();
 
-  DatePlace? _selectedPlace;
+  final List<DatePlace> _selectedPlaces = [];
   DateTime _selectedDate = DateTime.now();
   int _mood = 4;
   List<XFile> _images = [];
@@ -62,14 +62,15 @@ class _AddLogScreenState extends ConsumerState<AddLogScreen> {
               TextFormField(controller: _titleController, decoration: const InputDecoration(hintText: '어떤 데이트였나요?')),
               const SizedBox(height: 14),
 
-              // 장소
-              const _SectionLabel(label: '장소 *'),
-              _PlaceField(
-                place: _selectedPlace,
-                onTap: () async {
-                  final result = await PlacePicker.show(context, initial: _selectedPlace);
-                  if (result != null) setState(() => _selectedPlace = result);
+              // 코스 (복수 장소)
+              const _SectionLabel(label: '코스 *'),
+              _CoursePicker(
+                places: _selectedPlaces,
+                onAdd: () async {
+                  final result = await PlacePicker.show(context);
+                  if (result != null) setState(() => _selectedPlaces.add(result));
                 },
+                onRemove: (i) => setState(() => _selectedPlaces.removeAt(i)),
               ),
               const SizedBox(height: 14),
 
@@ -162,7 +163,6 @@ class _AddLogScreenState extends ConsumerState<AddLogScreen> {
     for (final image in _images) {
       try {
         final bytes = await image.readAsBytes();
-        // iOS는 HEIC로 올 수 있으므로 항상 jpeg로 처리
         final rawExt = image.name.contains('.')
             ? image.name.split('.').last.toLowerCase()
             : 'jpg';
@@ -185,8 +185,8 @@ class _AddLogScreenState extends ConsumerState<AddLogScreen> {
   }
 
   Future<void> _submit() async {
-    if (_selectedPlace == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('장소를 선택해 주세요')));
+    if (_selectedPlaces.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('장소를 하나 이상 선택해 주세요')));
       return;
     }
     if (!_formKey.currentState!.validate()) return;
@@ -194,9 +194,6 @@ class _AddLogScreenState extends ConsumerState<AddLogScreen> {
     setState(() => _uploading = true);
 
     final photoUrls = await _uploadPhotos();
-
-    final tags = _selectedTags.toList();
-
     final cost = double.tryParse(_costController.text) ?? 0;
 
     await ref.read(dateLogControllerProvider.notifier).add(
@@ -206,8 +203,8 @@ class _AddLogScreenState extends ConsumerState<AddLogScreen> {
           memo: _memoController.text.trim(),
           moodScore: _mood,
           totalCost: cost,
-          place: _selectedPlace!,
-          tags: tags,
+          places: List.of(_selectedPlaces),
+          tags: _selectedTags.toList(),
           photos: photoUrls,
         );
 
@@ -222,7 +219,7 @@ class _AddLogScreenState extends ConsumerState<AddLogScreen> {
     _memoController.clear();
     _costController.clear();
     setState(() {
-      _selectedPlace = null;
+      _selectedPlaces.clear();
       _selectedDate = DateTime.now();
       _mood = 4;
       _images = [];
@@ -230,6 +227,100 @@ class _AddLogScreenState extends ConsumerState<AddLogScreen> {
     });
   }
 }
+
+// ── 코스 피커 ─────────────────────────────────────────────────────────────────
+
+class _CoursePicker extends StatelessWidget {
+  const _CoursePicker({
+    required this.places,
+    required this.onAdd,
+    required this.onRemove,
+  });
+  final List<DatePlace> places;
+  final VoidCallback onAdd;
+  final ValueChanged<int> onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppConstants.surface,
+        borderRadius: BorderRadius.circular(AppConstants.radiusM),
+      ),
+      child: Column(
+        children: [
+          ...List.generate(places.length, (i) {
+            return Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 22,
+                        height: 22,
+                        decoration: const BoxDecoration(color: AppConstants.pink, shape: BoxShape.circle),
+                        child: Center(
+                          child: Text('${i + 1}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white)),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      const Icon(Icons.location_on_outlined, size: 16, color: AppConstants.textSecondary),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(places[i].displayName, style: const TextStyle(fontSize: 14, color: AppConstants.textPrimary)),
+                      ),
+                      GestureDetector(
+                        onTap: () => onRemove(i),
+                        child: const Icon(Icons.close_rounded, size: 18, color: AppConstants.textSecondary),
+                      ),
+                    ],
+                  ),
+                ),
+                if (i < places.length - 1)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 25),
+                    child: Row(
+                      children: [
+                        Container(width: 1.5, height: 16, color: AppConstants.pink.withAlpha(100)),
+                      ],
+                    ),
+                  ),
+              ],
+            );
+          }),
+          GestureDetector(
+            onTap: onAdd,
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              decoration: BoxDecoration(
+                border: places.isEmpty ? null : const Border(top: BorderSide(color: AppConstants.border)),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.add_location_alt_outlined, size: 16, color: AppConstants.pink),
+                  const SizedBox(width: 6),
+                  Text(
+                    places.isEmpty ? '장소를 선택하세요' : '장소 추가',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: places.isEmpty ? AppConstants.textSecondary : AppConstants.pink,
+                      fontWeight: places.isEmpty ? FontWeight.w400 : FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── 공통 위젯 ─────────────────────────────────────────────────────────────────
 
 class _SectionLabel extends StatelessWidget {
   const _SectionLabel({required this.label});
@@ -240,43 +331,6 @@ class _SectionLabel extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
       child: Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppConstants.textSecondary)),
-    );
-  }
-}
-
-class _PlaceField extends StatelessWidget {
-  const _PlaceField({required this.place, required this.onTap});
-  final DatePlace? place;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        decoration: BoxDecoration(
-          color: AppConstants.surface,
-          borderRadius: BorderRadius.circular(AppConstants.radiusM),
-        ),
-        child: Row(
-          children: [
-            const Icon(Icons.location_on_outlined, size: 18, color: AppConstants.textSecondary),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                place?.displayName ?? '지역을 선택하세요',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: place != null ? AppConstants.textPrimary : AppConstants.textSecondary,
-                ),
-              ),
-            ),
-            const Icon(Icons.chevron_right, size: 18, color: AppConstants.textSecondary),
-          ],
-        ),
-      ),
     );
   }
 }

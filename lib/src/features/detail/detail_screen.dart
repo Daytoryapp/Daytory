@@ -77,9 +77,10 @@ class DetailScreen extends ConsumerWidget {
           // 정보 섹션
           _InfoSection(children: [
             _InfoRow(icon: Icons.calendar_today_outlined, label: '날짜', value: DateFormat('yyyy년 M월 d일').format(log.startedAt)),
-            _InfoRow(icon: Icons.location_on_outlined, label: '장소', value: log.placeName),
             _InfoRow(icon: Icons.payments_outlined, label: '비용', value: '$costStr원'),
           ]),
+          const SizedBox(height: 12),
+          _CourseSection(log: log),
           const SizedBox(height: 12),
           _InfoSection(children: [
             _InfoRow(icon: Icons.notes_rounded, label: '메모', value: log.memo, multiLine: true),
@@ -109,26 +110,6 @@ class DetailScreen extends ConsumerWidget {
             ]),
           ],
 
-          const SizedBox(height: 12),
-          _InfoSection(children: [
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Row(children: [
-                    Icon(Icons.map_outlined, size: 16, color: AppConstants.textSecondary),
-                    SizedBox(width: 6),
-                    Text('위치', style: TextStyle(fontSize: 13, color: AppConstants.textSecondary, fontWeight: FontWeight.w500)),
-                  ]),
-                  const SizedBox(height: 8),
-                  Text(log.place.sido, style: const TextStyle(fontSize: 12, color: AppConstants.textSecondary)),
-                  const SizedBox(height: 2),
-                  Text(log.place.displayName, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppConstants.textPrimary)),
-                ],
-              ),
-            ),
-          ]),
         ],
       ),
     );
@@ -222,6 +203,67 @@ class _TagChip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
       decoration: BoxDecoration(color: AppConstants.pinkLight, borderRadius: BorderRadius.circular(AppConstants.radiusS)),
       child: Text(tag, style: const TextStyle(fontSize: 12, color: AppConstants.pink, fontWeight: FontWeight.w600)),
+    );
+  }
+}
+
+class _CourseSection extends StatelessWidget {
+  const _CourseSection({required this.log});
+  final DateLog log;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(AppConstants.radiusL),
+        border: Border.all(color: AppConstants.border),
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(children: [
+            Icon(Icons.route_outlined, size: 16, color: AppConstants.textSecondary),
+            SizedBox(width: 6),
+            Text('코스', style: TextStyle(fontSize: 13, color: AppConstants.textSecondary, fontWeight: FontWeight.w500)),
+          ]),
+          const SizedBox(height: 12),
+          ...List.generate(log.places.length, (i) {
+            final place = log.places[i];
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 22,
+                      height: 22,
+                      decoration: const BoxDecoration(color: AppConstants.pink, shape: BoxShape.circle),
+                      child: Center(
+                        child: Text('${i + 1}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white)),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(place.sido, style: const TextStyle(fontSize: 11, color: AppConstants.textSecondary)),
+                        Text(place.displayName, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppConstants.textPrimary)),
+                      ],
+                    ),
+                  ],
+                ),
+                if (i < log.places.length - 1)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 10, top: 4, bottom: 4),
+                    child: Container(width: 2, height: 16, color: AppConstants.pink.withAlpha(100)),
+                  ),
+              ],
+            );
+          }),
+        ],
+      ),
     );
   }
 }

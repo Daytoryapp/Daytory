@@ -37,7 +37,7 @@ class DateLogRepository {
     required String memo,
     required int moodScore,
     required double totalCost,
-    required DatePlace place,
+    required List<DatePlace> places,
     required List<String> tags,
     required List<String> photos,
     String? title,
@@ -51,7 +51,7 @@ class DateLogRepository {
       memo: memo,
       moodScore: moodScore,
       totalCost: totalCost,
-      place: place,
+      places: places,
       tags: tags,
       photos: photos,
     );

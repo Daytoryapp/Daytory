@@ -53,16 +53,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Container(
+                    Image.asset(
+                      'assets/images/app_logo_128.png',
                       width: 100,
                       height: 100,
-                      decoration: const BoxDecoration(
-                        color: AppConstants.pink,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Center(
-                        child: Text('💕', style: TextStyle(fontSize: 48)),
-                      ),
                     ),
                     const SizedBox(height: 24),
                     const Text(
