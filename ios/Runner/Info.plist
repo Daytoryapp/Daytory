@@ -22,10 +22,33 @@
 	<string>$(FLUTTER_BUILD_NAME)</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>kakao4149b2e3728dee2a6dada878d194f4ee</string>
+			</array>
+		</dict>
+	</array>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>kakaokompassauth</string>
+		<string>storykompassauth</string>
+		<string>kakaolink</string>
+		<string>kakaotalk</string>
+		<string>kakaostory</string>
+		<string>kakaoplus</string>
+		<string>kakao</string>
+	</array>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>현재 위치를 지도에 표시하고 데이트 장소 기록에 활용합니다.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>현재 위치를 지도에 표시하고 데이트 장소 기록에 활용합니다.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
@@ -65,29 +88,6 @@
 		<string>UIInterfaceOrientationPortraitUpsideDown</string>
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
-	</array>
-	<key>CFBundleURLTypes</key>
-	<array>
-		<dict>
-			<key>CFBundleURLSchemes</key>
-			<array>
-				<string>kakaoa15f2d949751205b32c6d31a315d8ae4</string>
-			</array>
-		</dict>
-	</array>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>현재 위치를 지도에 표시하고 데이트 장소 기록에 활용합니다.</string>
-	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>현재 위치를 지도에 표시하고 데이트 장소 기록에 활용합니다.</string>
-	<key>LSApplicationQueriesSchemes</key>
-	<array>
-		<string>kakaokompassauth</string>
-		<string>storykompassauth</string>
-		<string>kakaolink</string>
-		<string>kakaotalk</string>
-		<string>kakaostory</string>
-		<string>kakaoplus</string>
-		<string>kakao</string>
 	</array>
 </dict>
 </plist>
