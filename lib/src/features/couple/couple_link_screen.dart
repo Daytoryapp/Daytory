@@ -17,6 +17,16 @@ class _CoupleLinkScreenState extends ConsumerState<CoupleLinkScreen> {
   String? _errorMsg;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (ref.read(authStateProvider).profile?.inviteCode == null) {
+        ref.read(authStateProvider.notifier).ensureInviteCode();
+      }
+    });
+  }
+
+  @override
   void dispose() {
     _codeController.dispose();
     super.dispose();
@@ -32,18 +42,26 @@ class _CoupleLinkScreenState extends ConsumerState<CoupleLinkScreen> {
       _loading = true;
       _errorMsg = null;
     });
-    final error = await ref.read(authStateProvider.notifier).linkPartner(code);
-    if (!mounted) return;
-    if (error != null) {
+    try {
+      final error = await ref.read(authStateProvider.notifier).linkPartner(code);
+      if (!mounted) return;
+      if (error != null) {
+        setState(() {
+          _loading = false;
+          _errorMsg = error;
+        });
+      } else {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('파트너와 연동됐어요 💕')),
+        );
+      }
+    } catch (_) {
+      if (!mounted) return;
       setState(() {
         _loading = false;
-        _errorMsg = error;
+        _errorMsg = '오류가 발생했어요. 다시 시도해주세요.';
       });
-    } else {
-      Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('파트너와 연동됐어요 💕')),
-      );
     }
   }
 
@@ -70,10 +88,9 @@ class _CoupleLinkScreenState extends ConsumerState<CoupleLinkScreen> {
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(24),
           children: [
             // 내 초대 코드 섹션
             const Text(
@@ -95,6 +112,7 @@ class _CoupleLinkScreenState extends ConsumerState<CoupleLinkScreen> {
                 border: Border.all(color: AppConstants.pinkMid),
               ),
               child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
                     inviteCode,
@@ -106,27 +124,22 @@ class _CoupleLinkScreenState extends ConsumerState<CoupleLinkScreen> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      FilledButton.icon(
-                        icon: const Icon(Icons.copy_rounded, size: 16),
-                        label: const Text('복사하기'),
-                        onPressed: () {
-                          Clipboard.setData(ClipboardData(text: inviteCode));
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('코드가 복사됐어요')),
-                          );
-                        },
-                        style: FilledButton.styleFrom(
-                          backgroundColor: AppConstants.pink,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(AppConstants.radiusM),
-                          ),
-                        ),
+                  FilledButton.icon(
+                    icon: const Icon(Icons.copy_rounded, size: 16),
+                    label: const Text('복사하기'),
+                    onPressed: () {
+                      Clipboard.setData(ClipboardData(text: inviteCode));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('코드가 복사됐어요')),
+                      );
+                    },
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppConstants.pink,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(AppConstants.radiusM),
                       ),
-                    ],
+                    ),
                   ),
                 ],
               ),
@@ -139,10 +152,7 @@ class _CoupleLinkScreenState extends ConsumerState<CoupleLinkScreen> {
                 color: AppConstants.textSecondary,
               ),
             ),
-
             const SizedBox(height: 32),
-
-            // 구분선
             const Row(
               children: [
                 Expanded(child: Divider(color: AppConstants.border)),
@@ -159,10 +169,7 @@ class _CoupleLinkScreenState extends ConsumerState<CoupleLinkScreen> {
                 Expanded(child: Divider(color: AppConstants.border)),
               ],
             ),
-
             const SizedBox(height: 32),
-
-            // 파트너 코드 입력 섹션
             const Text(
               '파트너 코드 입력',
               style: TextStyle(
@@ -210,7 +217,6 @@ class _CoupleLinkScreenState extends ConsumerState<CoupleLinkScreen> {
               ),
             ),
             const SizedBox(height: 16),
-
             if (_errorMsg != null) ...[
               Text(
                 _errorMsg!,
@@ -218,7 +224,6 @@ class _CoupleLinkScreenState extends ConsumerState<CoupleLinkScreen> {
               ),
               const SizedBox(height: 8),
             ],
-
             FilledButton(
               onPressed: _loading ? null : _submit,
               style: FilledButton.styleFrom(
