@@ -162,20 +162,25 @@ class _PlacePickerContentState extends State<_PlacePickerContent> {
           address['municipality'] as String? ??
           '';
 
-      // 구 (있는 경우 시군구에 합침 - e.g., "수원시 팔달구")
+      // 구 추출 (city_district 또는 suburb가 구인 경우)
       final district = address['city_district'] as String? ?? '';
 
-      // 읍면동 추출
-      final dong = address['suburb'] as String? ??
-          address['quarter'] as String? ??
-          address['neighbourhood'] as String? ??
-          address['village'] as String? ??
-          address['hamlet'] as String? ??
-          '';
+      // 읍면동 추출 — suburb가 district와 동일하면 건너뛰고 quarter/neighbourhood 사용
+      final suburb = address['suburb'] as String? ?? '';
+      final dong = (suburb.isNotEmpty && suburb != district)
+          ? suburb
+          : (address['quarter'] as String? ??
+              address['neighbourhood'] as String? ??
+              address['village'] as String? ??
+              address['hamlet'] as String? ??
+              '');
 
-      // 구가 있으면 sigungu에 포함
+      // 구가 있으면 sigungu에 포함 (e.g., "수원시 권선구")
       if (district.isNotEmpty && !sigungu.contains(district)) {
         sigungu = '$sigungu $district'.trim();
+      } else if (suburb.isNotEmpty && suburb == district && !sigungu.contains(suburb)) {
+        // city_district가 없고 suburb에 구 이름이 있는 경우
+        sigungu = '$sigungu $suburb'.trim();
       }
 
       if (sido.isEmpty || sigungu.isEmpty) {
