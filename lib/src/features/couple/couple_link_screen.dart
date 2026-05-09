@@ -17,6 +17,16 @@ class _CoupleLinkScreenState extends ConsumerState<CoupleLinkScreen> {
   String? _errorMsg;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (ref.read(authStateProvider).profile?.inviteCode == null) {
+        ref.read(authStateProvider.notifier).ensureInviteCode();
+      }
+    });
+  }
+
+  @override
   void dispose() {
     _codeController.dispose();
     super.dispose();
@@ -32,18 +42,26 @@ class _CoupleLinkScreenState extends ConsumerState<CoupleLinkScreen> {
       _loading = true;
       _errorMsg = null;
     });
-    final error = await ref.read(authStateProvider.notifier).linkPartner(code);
-    if (!mounted) return;
-    if (error != null) {
+    try {
+      final error = await ref.read(authStateProvider.notifier).linkPartner(code);
+      if (!mounted) return;
+      if (error != null) {
+        setState(() {
+          _loading = false;
+          _errorMsg = error;
+        });
+      } else {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('파트너와 연동됐어요 💕')),
+        );
+      }
+    } catch (_) {
+      if (!mounted) return;
       setState(() {
         _loading = false;
-        _errorMsg = error;
+        _errorMsg = '오류가 발생했어요. 다시 시도해주세요.';
       });
-    } else {
-      Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('파트너와 연동됐어요 💕')),
-      );
     }
   }
 
