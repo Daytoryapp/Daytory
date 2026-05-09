@@ -85,8 +85,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     if (_loading)
-                      const CircularProgressIndicator(
-                        color: AppConstants.pink,
+                      const SizedBox(
+                        width: double.infinity,
+                        child: Center(
+                          child: CircularProgressIndicator(
+                            color: AppConstants.pink,
+                          ),
+                        ),
                       )
                     else
                       GestureDetector(
