@@ -19,6 +19,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
   static const _boxName = 'user_profile';
 
   Box<Map> get _box => Hive.box<Map>(_boxName);
+  RealtimeChannel? _partnerChannel;
 
   AuthNotifier() : super(const AuthState(status: AuthStatus.loading)) {
     _init();
@@ -33,6 +34,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
           status: profile.isComplete ? AuthStatus.ready : AuthStatus.needsProfile,
           profile: profile,
         );
+        _subscribeToPartnerUpdates(profile.kakaoId);
       } else {
         state = const AuthState(status: AuthStatus.loggedOut);
       }
@@ -40,6 +42,38 @@ class AuthNotifier extends StateNotifier<AuthState> {
       _box.delete('data');
       state = const AuthState(status: AuthStatus.loggedOut);
     }
+  }
+
+  /// Supabase Realtime으로 내 users 행 변경을 구독.
+  /// partner_kakao_id가 업데이트되면 즉시 로컬 상태 갱신.
+  void _subscribeToPartnerUpdates(String kakaoId) {
+    _partnerChannel?.unsubscribe();
+    _partnerChannel = Supabase.instance.client
+        .channel('partner_sync_$kakaoId')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.update,
+          schema: 'public',
+          table: 'users',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'kakao_id',
+            value: kakaoId,
+          ),
+          callback: (payload) {
+            final newPartnerId =
+                payload.newRecord['partner_kakao_id'] as String?;
+            if (newPartnerId != state.profile?.partnerKakaoId) {
+              refreshProfileFromSupabase();
+            }
+          },
+        )
+        .subscribe();
+  }
+
+  @override
+  void dispose() {
+    _partnerChannel?.unsubscribe();
+    super.dispose();
   }
 
   static String _generateInviteCode() {
@@ -115,6 +149,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         status: userProfile.isComplete ? AuthStatus.ready : AuthStatus.needsProfile,
         profile: userProfile,
       );
+      _subscribeToPartnerUpdates(kakaoId);
     } catch (_) {
       state = const AuthState(status: AuthStatus.loggedOut);
     }
@@ -210,6 +245,46 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
+  Future<void> refreshProfileFromSupabase() async {
+    final myKakaoId = state.profile?.kakaoId;
+    if (myKakaoId == null) return;
+    try {
+      final existing = await Supabase.instance.client
+          .from('users')
+          .select()
+          .eq('kakao_id', myKakaoId)
+          .maybeSingle();
+      if (existing == null) return;
+
+      final String? partnerKakaoId = existing['partner_kakao_id'] as String?;
+      if (partnerKakaoId == state.profile?.partnerKakaoId) return;
+
+      String? partnerNickname;
+      String? partnerProfileImageUrl;
+      String? partnerGender;
+
+      if (partnerKakaoId != null) {
+        final partnerRow = await Supabase.instance.client
+            .from('users')
+            .select()
+            .eq('kakao_id', partnerKakaoId)
+            .maybeSingle();
+        partnerNickname = partnerRow?['nickname'] as String?;
+        partnerProfileImageUrl = partnerRow?['profile_image'] as String?;
+        partnerGender = partnerRow?['gender'] as String?;
+      }
+
+      final updated = state.profile!.copyWith(
+        partnerKakaoId: partnerKakaoId,
+        partnerNickname: partnerNickname,
+        partnerProfileImageUrl: partnerProfileImageUrl,
+        partnerGender: partnerGender,
+      );
+      await _box.put('data', updated.toMap());
+      state = AuthState(status: state.status, profile: updated);
+    } catch (_) {}
+  }
+
   Future<void> ensureInviteCode() async {
     try {
       final myKakaoId = state.profile?.kakaoId;
@@ -263,6 +338,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   Future<void> logout() async {
+    _partnerChannel?.unsubscribe();
+    _partnerChannel = null;
     try {
       await kakao.UserApi.instance.logout();
     } catch (_) {}

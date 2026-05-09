@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:date_app/src/core/constants/app_constants.dart';
 import 'package:date_app/src/core/constants/place_constants.dart';
 import 'package:date_app/src/models/date_place.dart';
@@ -97,12 +100,20 @@ class _PlacePickerContentState extends State<_PlacePickerContent> {
         }
         return;
       }
-      final pos = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-        timeLimit: const Duration(seconds: 15),
-      );
+      Position? pos;
+      try {
+        pos = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.best,
+          timeLimit: const Duration(seconds: 10),
+        );
+      } catch (_) {
+        pos = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high,
+          timeLimit: const Duration(seconds: 15),
+        );
+      }
+      final place = await _reverseGeocode(pos.latitude, pos.longitude);
       if (mounted) {
-        final place = PlaceConstants.findNearestDatePlace(pos.latitude, pos.longitude);
         Navigator.of(context).pop(place);
       }
     } catch (_) {
@@ -112,6 +123,75 @@ class _PlacePickerContentState extends State<_PlacePickerContent> {
           const SnackBar(content: Text('위치를 가져올 수 없어요.')),
         );
       }
+    }
+  }
+
+  /// Nominatim 역지오코딩으로 실제 행정구역명(동 포함)을 가져옴.
+  /// 실패 시 기존 중심점 방식으로 폴백.
+  Future<DatePlace> _reverseGeocode(double lat, double lon) async {
+    try {
+      final uri = Uri.parse(
+        'https://nominatim.openstreetmap.org/reverse'
+        '?lat=$lat&lon=$lon&format=json&accept-language=ko',
+      );
+      final client = HttpClient();
+      client.connectionTimeout = const Duration(seconds: 8);
+      final request = await client.getUrl(uri);
+      request.headers.set('User-Agent', 'DayStoryApp/1.0 (contact@daystory.app)');
+      final response = await request.close();
+      final body = await response.transform(utf8.decoder).join();
+      client.close();
+
+      final data = jsonDecode(body) as Map<String, dynamic>;
+      final address = data['address'] as Map<String, dynamic>? ?? {};
+
+      // 시도 추출 (경기도 → 경기, 서울특별시 → 서울)
+      final rawState = address['state'] as String? ?? '';
+      final sido = rawState
+          .replaceAll('특별시', '')
+          .replaceAll('광역시', '')
+          .replaceAll('특별자치시', '')
+          .replaceAll('특별자치도', '')
+          .replaceAll('도', '')
+          .trim();
+
+      // 시군구 추출
+      String sigungu = address['city'] as String? ??
+          address['county'] as String? ??
+          address['town'] as String? ??
+          address['municipality'] as String? ??
+          '';
+
+      // 구 (있는 경우 시군구에 합침 - e.g., "수원시 팔달구")
+      final district = address['city_district'] as String? ?? '';
+
+      // 읍면동 추출
+      final dong = address['suburb'] as String? ??
+          address['quarter'] as String? ??
+          address['neighbourhood'] as String? ??
+          address['village'] as String? ??
+          address['hamlet'] as String? ??
+          '';
+
+      // 구가 있으면 sigungu에 포함
+      if (district.isNotEmpty && !sigungu.contains(district)) {
+        sigungu = '$sigungu $district'.trim();
+      }
+
+      if (sido.isEmpty || sigungu.isEmpty) {
+        return PlaceConstants.findNearestDatePlace(lat, lon);
+      }
+
+      return DatePlace(
+        sido: rawState.isNotEmpty ? rawState : sido,
+        sigungu: sigungu,
+        eupmyeondong: dong.isNotEmpty ? dong : null,
+        latitude: lat,
+        longitude: lon,
+      );
+    } catch (_) {
+      // Nominatim 실패 시 기존 방식으로 폴백
+      return PlaceConstants.findNearestDatePlace(lat, lon);
     }
   }
 

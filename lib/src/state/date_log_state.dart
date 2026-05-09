@@ -1,12 +1,21 @@
 import 'package:date_app/src/data/date_log_repository.dart';
 import 'package:date_app/src/models/date_log.dart';
 import 'package:date_app/src/models/date_place.dart';
+import 'package:date_app/src/state/auth_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final dateLogControllerProvider =
     StateNotifierProvider<DateLogController, List<DateLog>>((ref) {
   final repository = ref.read(dateLogRepositoryProvider);
-  return DateLogController(repository)..load();
+  final controller = DateLogController(repository)..load();
+
+  ref.listen<AuthState>(authStateProvider, (previous, next) {
+    if (previous?.profile?.partnerKakaoId != next.profile?.partnerKakaoId) {
+      controller.load();
+    }
+  });
+
+  return controller;
 });
 
 final selectedDayProvider = StateProvider<DateTime>((ref) => DateTime.now());

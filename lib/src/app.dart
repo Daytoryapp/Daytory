@@ -11,11 +11,35 @@ import 'package:date_app/src/state/auth_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class DateApp extends ConsumerWidget {
+class DateApp extends ConsumerStatefulWidget {
   const DateApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<DateApp> createState() => _DateAppState();
+}
+
+class _DateAppState extends ConsumerState<DateApp> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      ref.read(authStateProvider.notifier).refreshProfileFromSupabase();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final auth = ref.watch(authStateProvider);
 
     late final Widget home;
@@ -78,24 +102,38 @@ class HomeShell extends StatefulWidget {
 class _HomeShellState extends State<HomeShell> {
   int _index = 0;
 
-  static const _pages = [
-    CalendarScreen(),
-    MapScreen(),
-    AddLogScreen(),
-    StatsScreen(),
-    MypageScreen(),
-  ];
-
   @override
   Widget build(BuildContext context) {
+    Widget body;
+    switch (_index) {
+      case 0:
+        body = const CalendarScreen();
+      case 1:
+        body = const MapScreen();
+      case 3:
+        body = const StatsScreen();
+      case 4:
+        body = const MypageScreen();
+      default:
+        body = const CalendarScreen();
+    }
+
     return Scaffold(
-      body: _pages[_index],
+      body: body,
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(
             border: Border(top: BorderSide(color: AppConstants.border))),
         child: NavigationBar(
           selectedIndex: _index,
-          onDestinationSelected: (v) => setState(() => _index = v),
+          onDestinationSelected: (v) {
+            if (v == 2) {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(builder: (_) => const AddLogScreen()),
+              );
+            } else {
+              setState(() => _index = v);
+            }
+          },
           destinations: const [
             NavigationDestination(
                 icon: Icon(Icons.calendar_month_outlined),
