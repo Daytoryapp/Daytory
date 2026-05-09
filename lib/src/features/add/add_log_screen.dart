@@ -41,19 +41,34 @@ class _AddLogScreenState extends ConsumerState<AddLogScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('기록 작성', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: AppConstants.textPrimary, letterSpacing: -0.5)),
-              const SizedBox(height: 20),
-
-              // 이미지
-              const _SectionLabel(label: '사진 (최대 5장)'),
+    return Scaffold(
+      backgroundColor: AppConstants.surfaceWarm,
+      appBar: AppBar(
+        backgroundColor: AppConstants.surfaceWarm,
+        elevation: 0,
+        title: const Text(
+          '기록 작성',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+            color: AppConstants.textPrimary,
+          ),
+        ),
+        leading: IconButton(
+          icon: const Icon(Icons.close, color: AppConstants.textPrimary),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+      ),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 이미지
+                const _SectionLabel(label: '사진 (최대 5장)'),
               ImagePickerRow(onChanged: (imgs) => setState(() => _images = imgs)),
               const SizedBox(height: 16),
 
@@ -152,6 +167,7 @@ class _AddLogScreenState extends ConsumerState<AddLogScreen> {
           ),
         ),
       ),
+    ),
     );
   }
 
@@ -211,21 +227,9 @@ class _AddLogScreenState extends ConsumerState<AddLogScreen> {
     if (!mounted) return;
     setState(() => _uploading = false);
     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('기록이 저장되었습니다')));
-    _reset();
+    Navigator.of(context).pop();
   }
 
-  void _reset() {
-    _titleController.clear();
-    _memoController.clear();
-    _costController.clear();
-    setState(() {
-      _selectedPlaces.clear();
-      _selectedDate = DateTime.now();
-      _mood = 4;
-      _images = [];
-      _selectedTags.clear();
-    });
-  }
 }
 
 // ── 코스 피커 ─────────────────────────────────────────────────────────────────

@@ -210,6 +210,46 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
+  Future<void> refreshProfileFromSupabase() async {
+    final myKakaoId = state.profile?.kakaoId;
+    if (myKakaoId == null) return;
+    try {
+      final existing = await Supabase.instance.client
+          .from('users')
+          .select()
+          .eq('kakao_id', myKakaoId)
+          .maybeSingle();
+      if (existing == null) return;
+
+      final String? partnerKakaoId = existing['partner_kakao_id'] as String?;
+      if (partnerKakaoId == state.profile?.partnerKakaoId) return;
+
+      String? partnerNickname;
+      String? partnerProfileImageUrl;
+      String? partnerGender;
+
+      if (partnerKakaoId != null) {
+        final partnerRow = await Supabase.instance.client
+            .from('users')
+            .select()
+            .eq('kakao_id', partnerKakaoId)
+            .maybeSingle();
+        partnerNickname = partnerRow?['nickname'] as String?;
+        partnerProfileImageUrl = partnerRow?['profile_image'] as String?;
+        partnerGender = partnerRow?['gender'] as String?;
+      }
+
+      final updated = state.profile!.copyWith(
+        partnerKakaoId: partnerKakaoId,
+        partnerNickname: partnerNickname,
+        partnerProfileImageUrl: partnerProfileImageUrl,
+        partnerGender: partnerGender,
+      );
+      await _box.put('data', updated.toMap());
+      state = AuthState(status: state.status, profile: updated);
+    } catch (_) {}
+  }
+
   Future<void> ensureInviteCode() async {
     try {
       final myKakaoId = state.profile?.kakaoId;

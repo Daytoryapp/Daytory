@@ -97,10 +97,18 @@ class _PlacePickerContentState extends State<_PlacePickerContent> {
         }
         return;
       }
-      final pos = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-        timeLimit: const Duration(seconds: 15),
-      );
+      Position? pos;
+      try {
+        pos = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.best,
+          timeLimit: const Duration(seconds: 10),
+        );
+      } catch (_) {
+        pos = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high,
+          timeLimit: const Duration(seconds: 15),
+        );
+      }
       if (mounted) {
         final place = PlaceConstants.findNearestDatePlace(pos.latitude, pos.longitude);
         Navigator.of(context).pop(place);
