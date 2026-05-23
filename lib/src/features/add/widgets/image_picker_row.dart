@@ -1,45 +1,77 @@
 import 'dart:io';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:date_app/src/core/constants/app_constants.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
+typedef PhotosChanged = void Function(List<String> keptUrls, List<XFile> newFiles);
+
 class ImagePickerRow extends StatefulWidget {
-  const ImagePickerRow({super.key, required this.onChanged, this.maxImages = 5});
-  final ValueChanged<List<XFile>> onChanged;
+  const ImagePickerRow({
+    super.key,
+    required this.onChanged,
+    this.maxImages = 5,
+    this.initialUrls = const [],
+  });
+  final PhotosChanged onChanged;
   final int maxImages;
+  final List<String> initialUrls;
 
   @override
   State<ImagePickerRow> createState() => _ImagePickerRowState();
 }
 
 class _ImagePickerRowState extends State<ImagePickerRow> {
-  final List<XFile> _images = [];
+  // Items are either String (existing URL) or XFile (new)
+  late List<Object> _items;
   final _picker = ImagePicker();
 
-  Future<void> _pick() async {
-    final remaining = widget.maxImages - _images.length;
-    if (remaining <= 0) return;
+  @override
+  void initState() {
+    super.initState();
+    _items = List<Object>.from(widget.initialUrls);
+  }
 
+  int get _total => _items.length;
+
+  void _notify() {
+    widget.onChanged(
+      _items.whereType<String>().toList(),
+      _items.whereType<XFile>().toList(),
+    );
+  }
+
+  Future<void> _pick() async {
+    final remaining = widget.maxImages - _total;
+    if (remaining <= 0) return;
     final picked = await _picker.pickMultiImage(limit: remaining);
     if (picked.isEmpty) return;
-    setState(() => _images.addAll(picked));
-    widget.onChanged(List.unmodifiable(_images));
+    setState(() => _items.addAll(picked));
+    _notify();
   }
 
   void _remove(int index) {
-    setState(() => _images.removeAt(index));
-    widget.onChanged(List.unmodifiable(_images));
+    setState(() => _items.removeAt(index));
+    _notify();
+  }
+
+  void _onReorder(int oldIndex, int newIndex) {
+    setState(() {
+      if (newIndex > oldIndex) newIndex--;
+      final item = _items.removeAt(oldIndex);
+      _items.insert(newIndex, item);
+    });
+    _notify();
   }
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
       height: 90,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
+      child: Row(
         children: [
-          if (_images.length < widget.maxImages)
+          if (_total < widget.maxImages)
             GestureDetector(
               onTap: _pick,
               child: Container(
@@ -57,17 +89,31 @@ class _ImagePickerRowState extends State<ImagePickerRow> {
                     const Icon(Icons.add_photo_alternate_outlined, size: 24, color: AppConstants.textSecondary),
                     const SizedBox(height: 4),
                     Text(
-                      '${_images.length}/${widget.maxImages}',
+                      '$_total/${widget.maxImages}',
                       style: const TextStyle(fontSize: 11, color: AppConstants.textSecondary),
                     ),
                   ],
                 ),
               ),
             ),
-          for (var i = 0; i < _images.length; i++)
-            _ImageThumb(
-              xfile: _images[i],
-              onRemove: () => _remove(i),
+          if (_items.isNotEmpty)
+            Expanded(
+              child: ReorderableListView(
+                scrollDirection: Axis.horizontal,
+                buildDefaultDragHandles: false,
+                onReorder: _onReorder,
+                children: [
+                  for (var i = 0; i < _items.length; i++)
+                    ReorderableDragStartListener(
+                      key: ValueKey(i),
+                      index: i,
+                      child: _ItemThumb(
+                        item: _items[i],
+                        onRemove: () => _remove(i),
+                      ),
+                    ),
+                ],
+              ),
             ),
         ],
       ),
@@ -75,28 +121,55 @@ class _ImagePickerRowState extends State<ImagePickerRow> {
   }
 }
 
-class _ImageThumb extends StatefulWidget {
-  const _ImageThumb({required this.xfile, required this.onRemove});
-  final XFile xfile;
+class _ItemThumb extends StatefulWidget {
+  const _ItemThumb({required this.item, required this.onRemove});
+  final Object item;
   final VoidCallback onRemove;
 
   @override
-  State<_ImageThumb> createState() => _ImageThumbState();
+  State<_ItemThumb> createState() => _ItemThumbState();
 }
 
-class _ImageThumbState extends State<_ImageThumb> {
+class _ItemThumbState extends State<_ItemThumb> {
   Uint8List? _bytes;
 
   @override
   void initState() {
     super.initState();
-    widget.xfile.readAsBytes().then((b) {
-      if (mounted) setState(() => _bytes = b);
-    });
+    final item = widget.item;
+    if (item is XFile && !kIsWeb) {
+      item.readAsBytes().then((b) {
+        if (mounted) setState(() => _bytes = b);
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final item = widget.item;
+    Widget imageWidget;
+
+    if (item is String) {
+      imageWidget = CachedNetworkImage(
+        imageUrl: item,
+        width: 80,
+        height: 80,
+        fit: BoxFit.cover,
+        placeholder: (_, __) => const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+        errorWidget: (_, __, ___) => const Icon(Icons.broken_image_outlined),
+      );
+    } else if (item is XFile) {
+      if (_bytes != null) {
+        imageWidget = Image.memory(_bytes!, width: 80, height: 80, fit: BoxFit.cover);
+      } else if (!kIsWeb) {
+        imageWidget = Image.file(File(item.path), width: 80, height: 80, fit: BoxFit.cover);
+      } else {
+        imageWidget = const Center(child: CircularProgressIndicator(strokeWidth: 2));
+      }
+    } else {
+      imageWidget = const SizedBox();
+    }
+
     return Container(
       width: 80,
       height: 80,
@@ -109,11 +182,7 @@ class _ImageThumbState extends State<_ImageThumb> {
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(AppConstants.radiusM),
-            child: _bytes != null
-                ? Image.memory(_bytes!, width: 80, height: 80, fit: BoxFit.cover)
-                : (!kIsWeb
-                    ? Image.file(File(widget.xfile.path), width: 80, height: 80, fit: BoxFit.cover)
-                    : const Center(child: CircularProgressIndicator(strokeWidth: 2))),
+            child: imageWidget,
           ),
           Positioned(
             top: 4,
