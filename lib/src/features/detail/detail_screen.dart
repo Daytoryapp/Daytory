@@ -41,12 +41,15 @@ class DetailScreen extends ConsumerWidget {
           IconButton(
             icon: const Icon(Icons.edit_outlined),
             tooltip: '수정',
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute<void>(
+            onPressed: () async {
+              final edited = await Navigator.of(context).push<bool>(
+                MaterialPageRoute<bool>(
                   builder: (_) => AddLogScreen(editLog: log),
                 ),
               );
+              if (edited == true && context.mounted) {
+                Navigator.of(context).pop();
+              }
             },
           ),
           IconButton(

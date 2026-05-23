@@ -350,7 +350,7 @@ class _AddLogScreenState extends ConsumerState<AddLogScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(_isEditing ? '수정되었습니다' : '기록이 저장되었습니다')),
     );
-    Navigator.of(context).pop();
+    Navigator.of(context).pop(_isEditing);
   }
 }
 
