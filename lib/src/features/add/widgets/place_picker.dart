@@ -5,6 +5,7 @@ import 'package:date_app/src/core/constants/app_constants.dart';
 import 'package:date_app/src/core/constants/place_constants.dart';
 import 'package:date_app/src/models/date_place.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:geolocator/geolocator.dart';
 
 class PlacePicker extends StatefulWidget {
@@ -126,9 +127,56 @@ class _PlacePickerContentState extends State<_PlacePickerContent> {
     }
   }
 
-  /// Nominatim 역지오코딩으로 실제 행정구역명(동 포함)을 가져옴.
-  /// 실패 시 기존 중심점 방식으로 폴백.
+  /// 카카오 로컬 API 역지오코딩 — 한국 행정구역(시도/시군구/동) 정확도 최고.
+  /// REST API 키 미설정 또는 실패 시 기존 중심점 방식으로 폴백.
   Future<DatePlace> _reverseGeocode(double lat, double lon) async {
+    try {
+      final restKey = dotenv.env['KAKAO_REST_API_KEY'] ?? '';
+      if (restKey.isEmpty || restKey == '여기에_REST_API_키_입력') {
+        return _nominatimFallback(lat, lon);
+      }
+
+      // x=경도, y=위도 (카카오 API 파라미터 순서 주의)
+      final uri = Uri.parse(
+        'https://dapi.kakao.com/v2/local/geo/coord2address.json'
+        '?x=$lon&y=$lat',
+      );
+      final client = HttpClient();
+      client.connectionTimeout = const Duration(seconds: 8);
+      final request = await client.getUrl(uri);
+      request.headers.set('Authorization', 'KakaoAK $restKey');
+      final response = await request.close();
+      final body = await response.transform(utf8.decoder).join();
+      client.close();
+
+      final data = jsonDecode(body) as Map<String, dynamic>;
+      final docs = data['documents'] as List?;
+      if (docs == null || docs.isEmpty) return _nominatimFallback(lat, lon);
+
+      final addr = (docs.first as Map<String, dynamic>)['address'] as Map<String, dynamic>?;
+      if (addr == null) return _nominatimFallback(lat, lon);
+
+      // region_1depth_name: "경기" / region_2depth_name: "수원시 권선구" / region_3depth_name: "금곡동"
+      final sido    = addr['region_1depth_name'] as String? ?? '';
+      final sigungu = addr['region_2depth_name'] as String? ?? '';
+      final dong    = addr['region_3depth_name'] as String? ?? '';
+
+      if (sido.isEmpty || sigungu.isEmpty) return _nominatimFallback(lat, lon);
+
+      return DatePlace(
+        sido: sido,
+        sigungu: sigungu,
+        eupmyeondong: dong.isNotEmpty ? dong : null,
+        latitude: lat,
+        longitude: lon,
+      );
+    } catch (_) {
+      return _nominatimFallback(lat, lon);
+    }
+  }
+
+  /// Nominatim(OSM) 폴백 — 카카오 키가 없거나 API 실패 시 사용.
+  Future<DatePlace> _nominatimFallback(double lat, double lon) async {
     try {
       final uri = Uri.parse(
         'https://nominatim.openstreetmap.org/reverse'
@@ -137,7 +185,7 @@ class _PlacePickerContentState extends State<_PlacePickerContent> {
       final client = HttpClient();
       client.connectionTimeout = const Duration(seconds: 8);
       final request = await client.getUrl(uri);
-      request.headers.set('User-Agent', 'DayStoryApp/1.0 (contact@daystory.app)');
+      request.headers.set('User-Agent', 'DayStoryApp/1.0');
       final response = await request.close();
       final body = await response.transform(utf8.decoder).join();
       client.close();
@@ -145,35 +193,24 @@ class _PlacePickerContentState extends State<_PlacePickerContent> {
       final data = jsonDecode(body) as Map<String, dynamic>;
       final address = data['address'] as Map<String, dynamic>? ?? {};
 
-      // 시도 추출 (경기도 → 경기, 서울특별시 → 서울)
       final rawState = address['state'] as String? ?? '';
       final sido = rawState
-          .replaceAll('특별시', '')
-          .replaceAll('광역시', '')
-          .replaceAll('특별자치시', '')
-          .replaceAll('특별자치도', '')
-          .replaceAll('도', '')
-          .trim();
+          .replaceAll('특별시', '').replaceAll('광역시', '')
+          .replaceAll('특별자치시', '').replaceAll('특별자치도', '')
+          .replaceAll('도', '').trim();
 
-      // 시군구 추출
       String sigungu = address['city'] as String? ??
           address['county'] as String? ??
-          address['town'] as String? ??
-          address['municipality'] as String? ??
-          '';
+          address['town'] as String? ?? '';
 
-      // 구 (있는 경우 시군구에 합침 - e.g., "수원시 팔달구")
       final district = address['city_district'] as String? ?? '';
+      final suburb   = address['suburb'] as String? ?? '';
+      final dong = (suburb.isNotEmpty && suburb != district)
+          ? suburb
+          : (address['quarter'] as String? ??
+             address['neighbourhood'] as String? ??
+             address['village'] as String? ?? '');
 
-      // 읍면동 추출
-      final dong = address['suburb'] as String? ??
-          address['quarter'] as String? ??
-          address['neighbourhood'] as String? ??
-          address['village'] as String? ??
-          address['hamlet'] as String? ??
-          '';
-
-      // 구가 있으면 sigungu에 포함
       if (district.isNotEmpty && !sigungu.contains(district)) {
         sigungu = '$sigungu $district'.trim();
       }
@@ -190,7 +227,6 @@ class _PlacePickerContentState extends State<_PlacePickerContent> {
         longitude: lon,
       );
     } catch (_) {
-      // Nominatim 실패 시 기존 방식으로 폴백
       return PlaceConstants.findNearestDatePlace(lat, lon);
     }
   }

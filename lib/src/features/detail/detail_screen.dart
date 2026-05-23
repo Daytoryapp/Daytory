@@ -1,11 +1,16 @@
 import 'dart:io';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:date_app/src/core/constants/app_constants.dart';
 import 'package:date_app/src/core/widgets/mood_widget.dart';
+import 'package:date_app/src/features/add/add_log_screen.dart';
 import 'package:date_app/src/models/date_log.dart';
+import 'package:date_app/src/state/date_log_state.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:latlong2/latlong.dart';
 
 class DetailScreen extends ConsumerWidget {
   const DetailScreen({required this.log, super.key});
@@ -18,6 +23,12 @@ class DetailScreen extends ConsumerWidget {
     final moodColor = AppConstants.moodColors[log.moodScore.clamp(1, 5)];
     final costStr = NumberFormat('#,###').format(log.totalCost.toInt());
 
+    final startH = log.startedAt.hour.toString().padLeft(2, '0');
+    final startM = log.startedAt.minute.toString().padLeft(2, '0');
+    final endH = log.endedAt.hour.toString().padLeft(2, '0');
+    final endM = log.endedAt.minute.toString().padLeft(2, '0');
+    final timeStr = '$startH:$startM – $endH:$endM';
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -26,6 +37,46 @@ class DetailScreen extends ConsumerWidget {
           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
           onPressed: () => Navigator.of(context).pop(),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.edit_outlined),
+            tooltip: '수정',
+            onPressed: () async {
+              final edited = await Navigator.of(context).push<bool>(
+                MaterialPageRoute<bool>(
+                  builder: (_) => AddLogScreen(editLog: log),
+                ),
+              );
+              if (edited == true && context.mounted) {
+                Navigator.of(context).pop();
+              }
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+            tooltip: '삭제',
+            onPressed: () async {
+              final confirmed = await showDialog<bool>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: const Text('기록 삭제'),
+                  content: const Text('이 기록을 삭제할까요?'),
+                  actions: [
+                    TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('취소')),
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx, true),
+                      child: const Text('삭제', style: TextStyle(color: Colors.redAccent)),
+                    ),
+                  ],
+                ),
+              );
+              if (confirmed == true && context.mounted) {
+                await ref.read(dateLogControllerProvider.notifier).delete(log.id);
+                if (context.mounted) Navigator.of(context).pop();
+              }
+            },
+          ),
+        ],
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 40),
@@ -36,16 +87,26 @@ class DetailScreen extends ConsumerWidget {
               height: 220,
               child: PageView.builder(
                 itemCount: log.photos.length,
-                itemBuilder: (context, i) => Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(AppConstants.radiusL),
-                    child: _PhotoView(path: log.photos[i]),
+                itemBuilder: (context, i) => GestureDetector(
+                  onTap: () => _openFullscreen(context, i),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(AppConstants.radiusL),
+                      child: _PhotoView(path: log.photos[i]),
+                    ),
                   ),
                 ),
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 4),
+            Center(
+              child: Text(
+                '탭하면 크게 볼 수 있어요',
+                style: TextStyle(fontSize: 11, color: AppConstants.textSecondary.withAlpha(180)),
+              ),
+            ),
+            const SizedBox(height: 10),
           ],
 
           // 히어로 섹션
@@ -63,7 +124,15 @@ class DetailScreen extends ConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(log.title ?? log.placeName, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: AppConstants.textPrimary, letterSpacing: -0.3)),
+                      Text(
+                        log.title ?? log.placeName,
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
+                          color: AppConstants.textPrimary,
+                          letterSpacing: -0.3,
+                        ),
+                      ),
                       const SizedBox(height: 4),
                       Text(moodLabel, style: const TextStyle(fontSize: 14, color: AppConstants.textSecondary)),
                     ],
@@ -76,7 +145,16 @@ class DetailScreen extends ConsumerWidget {
 
           // 정보 섹션
           _InfoSection(children: [
-            _InfoRow(icon: Icons.calendar_today_outlined, label: '날짜', value: DateFormat('yyyy년 M월 d일').format(log.startedAt)),
+            _InfoRow(
+              icon: Icons.calendar_today_outlined,
+              label: '날짜',
+              value: DateFormat('yyyy년 M월 d일').format(log.startedAt),
+            ),
+            _InfoRow(
+              icon: Icons.access_time_rounded,
+              label: '시간',
+              value: timeStr,
+            ),
             _InfoRow(icon: Icons.payments_outlined, label: '비용', value: '$costStr원'),
           ]),
           const SizedBox(height: 12),
@@ -101,7 +179,8 @@ class DetailScreen extends ConsumerWidget {
                     ]),
                     const SizedBox(height: 10),
                     Wrap(
-                      spacing: 6, runSpacing: 6,
+                      spacing: 6,
+                      runSpacing: 6,
                       children: log.tags.map((tag) => _TagChip(tag: tag)).toList(),
                     ),
                   ],
@@ -109,12 +188,79 @@ class DetailScreen extends ConsumerWidget {
               ),
             ]),
           ],
-
         ],
       ),
     );
   }
+
+  void _openFullscreen(BuildContext context, int initialIndex) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        fullscreenDialog: true,
+        builder: (_) => _FullscreenPhotoViewer(
+          photos: log.photos,
+          initialIndex: initialIndex,
+        ),
+      ),
+    );
+  }
 }
+
+// ── 풀스크린 사진 뷰어 ────────────────────────────────────────────────────────
+
+class _FullscreenPhotoViewer extends StatefulWidget {
+  const _FullscreenPhotoViewer({required this.photos, required this.initialIndex});
+  final List<String> photos;
+  final int initialIndex;
+
+  @override
+  State<_FullscreenPhotoViewer> createState() => _FullscreenPhotoViewerState();
+}
+
+class _FullscreenPhotoViewerState extends State<_FullscreenPhotoViewer> {
+  late final PageController _controller;
+  late int _current;
+
+  @override
+  void initState() {
+    super.initState();
+    _current = widget.initialIndex;
+    _controller = PageController(initialPage: widget.initialIndex);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+        title: Text(
+          '${_current + 1} / ${widget.photos.length}',
+          style: const TextStyle(fontSize: 16, color: Colors.white),
+        ),
+      ),
+      body: PageView.builder(
+        controller: _controller,
+        itemCount: widget.photos.length,
+        onPageChanged: (i) => setState(() => _current = i),
+        itemBuilder: (context, i) {
+          return InteractiveViewer(
+            child: Center(child: _PhotoView(path: widget.photos[i])),
+          );
+        },
+      ),
+    );
+  }
+}
+
+// ── 사진 위젯 ─────────────────────────────────────────────────────────────────
 
 class _PhotoView extends StatefulWidget {
   const _PhotoView({required this.path});
@@ -140,14 +286,25 @@ class _PhotoViewState extends State<_PhotoView> {
   @override
   Widget build(BuildContext context) {
     if (widget.path.startsWith('http')) {
-      return Image.network(widget.path, fit: BoxFit.cover, width: double.infinity);
+      return CachedNetworkImage(
+        imageUrl: widget.path,
+        fit: BoxFit.cover,
+        width: double.infinity,
+        placeholder: (_, __) => const Center(child: CircularProgressIndicator()),
+        errorWidget: (_, __, ___) => const Center(child: Icon(Icons.broken_image_outlined, color: Colors.white54, size: 48)),
+      );
     }
     if (_bytes != null) {
       return Image.memory(_bytes!, fit: BoxFit.cover, width: double.infinity);
     }
-    return Container(color: AppConstants.surface, child: const Center(child: Icon(Icons.image_outlined, size: 48, color: AppConstants.textSecondary)));
+    return Container(
+      color: AppConstants.surface,
+      child: const Center(child: Icon(Icons.image_outlined, size: 48, color: AppConstants.textSecondary)),
+    );
   }
 }
+
+// ── 정보 섹션 ─────────────────────────────────────────────────────────────────
 
 class _InfoSection extends StatelessWidget {
   const _InfoSection({required this.children});
@@ -169,7 +326,12 @@ class _InfoSection extends StatelessWidget {
 }
 
 class _InfoRow extends StatelessWidget {
-  const _InfoRow({required this.icon, required this.label, required this.value, this.multiLine = false});
+  const _InfoRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+    this.multiLine = false,
+  });
   final IconData icon;
   final String label;
   final String value;
@@ -184,9 +346,22 @@ class _InfoRow extends StatelessWidget {
         children: [
           Icon(icon, size: 16, color: AppConstants.textSecondary),
           const SizedBox(width: 6),
-          SizedBox(width: 36, child: Text(label, style: const TextStyle(fontSize: 13, color: AppConstants.textSecondary, fontWeight: FontWeight.w500))),
+          SizedBox(
+            width: 36,
+            child: Text(
+              label,
+              style: const TextStyle(fontSize: 13, color: AppConstants.textSecondary, fontWeight: FontWeight.w500),
+            ),
+          ),
           const SizedBox(width: 8),
-          Expanded(child: Text(value, style: const TextStyle(fontSize: 14, color: AppConstants.textPrimary, fontWeight: FontWeight.w500), maxLines: multiLine ? null : 1, overflow: multiLine ? null : TextOverflow.ellipsis)),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(fontSize: 14, color: AppConstants.textPrimary, fontWeight: FontWeight.w500),
+              maxLines: multiLine ? null : 1,
+              overflow: multiLine ? null : TextOverflow.ellipsis,
+            ),
+          ),
         ],
       ),
     );
@@ -201,11 +376,19 @@ class _TagChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-      decoration: BoxDecoration(color: AppConstants.pinkLight, borderRadius: BorderRadius.circular(AppConstants.radiusS)),
-      child: Text(tag, style: const TextStyle(fontSize: 12, color: AppConstants.pink, fontWeight: FontWeight.w600)),
+      decoration: BoxDecoration(
+        color: AppConstants.pinkLight,
+        borderRadius: BorderRadius.circular(AppConstants.radiusS),
+      ),
+      child: Text(
+        tag,
+        style: const TextStyle(fontSize: 12, color: AppConstants.pink, fontWeight: FontWeight.w600),
+      ),
     );
   }
 }
+
+// ── 코스 섹션 (경로 지도 포함) ───────────────────────────────────────────────
 
 class _CourseSection extends StatelessWidget {
   const _CourseSection({required this.log});
@@ -213,6 +396,8 @@ class _CourseSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final showMap = log.places.length >= 2;
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -241,7 +426,10 @@ class _CourseSection extends StatelessWidget {
                       height: 22,
                       decoration: const BoxDecoration(color: AppConstants.pink, shape: BoxShape.circle),
                       child: Center(
-                        child: Text('${i + 1}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white)),
+                        child: Text(
+                          '${i + 1}',
+                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 10),
@@ -249,7 +437,10 @@ class _CourseSection extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(place.sido, style: const TextStyle(fontSize: 11, color: AppConstants.textSecondary)),
-                        Text(place.displayName, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppConstants.textPrimary)),
+                        Text(
+                          place.displayName,
+                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppConstants.textPrimary),
+                        ),
                       ],
                     ),
                   ],
@@ -262,7 +453,76 @@ class _CourseSection extends StatelessWidget {
               ],
             );
           }),
+          if (showMap) ...[
+            const SizedBox(height: 16),
+            _CourseMap(log: log),
+          ],
         ],
+      ),
+    );
+  }
+}
+
+class _CourseMap extends StatelessWidget {
+  const _CourseMap({required this.log});
+  final DateLog log;
+
+  @override
+  Widget build(BuildContext context) {
+    final points = log.places.map((p) => LatLng(p.latitude, p.longitude)).toList();
+    final center = LatLng(
+      points.map((p) => p.latitude).reduce((a, b) => a + b) / points.length,
+      points.map((p) => p.longitude).reduce((a, b) => a + b) / points.length,
+    );
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(AppConstants.radiusM),
+      child: SizedBox(
+        height: 180,
+        child: FlutterMap(
+          options: MapOptions(
+            initialCenter: center,
+            initialZoom: 11,
+            interactionOptions: const InteractionOptions(flags: InteractiveFlag.none),
+          ),
+          children: [
+            TileLayer(
+              urlTemplate: AppConstants.osmTileUrl,
+              userAgentPackageName: AppConstants.userAgentPackage,
+            ),
+            PolylineLayer(
+              polylines: [
+                Polyline(
+                  points: points,
+                  strokeWidth: 3,
+                  color: AppConstants.pink.withAlpha(200),
+                ),
+              ],
+            ),
+            MarkerLayer(
+              markers: List.generate(points.length, (i) {
+                return Marker(
+                  point: points[i],
+                  width: 28,
+                  height: 28,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: AppConstants.pink,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 2),
+                    ),
+                    child: Center(
+                      child: Text(
+                        '${i + 1}',
+                        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Colors.white),
+                      ),
+                    ),
+                  ),
+                );
+              }),
+            ),
+          ],
+        ),
       ),
     );
   }
