@@ -8,6 +8,7 @@ import 'package:date_app/src/features/map/map_screen.dart';
 import 'package:date_app/src/features/mypage/mypage_screen.dart';
 import 'package:date_app/src/features/stats/stats_screen.dart';
 import 'package:date_app/src/state/auth_state.dart';
+import 'package:date_app/src/state/date_log_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -92,18 +93,32 @@ class _SplashScreen extends StatelessWidget {
   }
 }
 
-class HomeShell extends StatefulWidget {
+class HomeShell extends ConsumerStatefulWidget {
   const HomeShell({super.key});
 
   @override
-  State<HomeShell> createState() => _HomeShellState();
+  ConsumerState<HomeShell> createState() => _HomeShellState();
 }
 
-class _HomeShellState extends State<HomeShell> {
+class _HomeShellState extends ConsumerState<HomeShell> {
   int _index = 0;
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<List<String>>(partnerNotificationProvider, (_, queue) {
+      if (queue.isEmpty) return;
+      for (final msg in queue) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(msg),
+            backgroundColor: AppConstants.pink,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+      ref.read(partnerNotificationProvider.notifier).state = const [];
+    });
+
     Widget body;
     switch (_index) {
       case 0:

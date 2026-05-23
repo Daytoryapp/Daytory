@@ -3,6 +3,7 @@ import 'package:date_app/src/core/constants/app_constants.dart';
 import 'package:date_app/src/core/widgets/mood_widget.dart';
 import 'package:date_app/src/features/detail/detail_screen.dart';
 import 'package:date_app/src/models/date_log.dart';
+import 'package:date_app/src/state/auth_state.dart';
 import 'package:date_app/src/state/date_log_state.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -333,6 +334,8 @@ class _LogCard extends ConsumerWidget {
     final moodScore = log.moodScore.clamp(1, 5);
     final moodColor = AppConstants.moodColors[moodScore];
     final costStr = NumberFormat('#,###').format(log.totalCost.toInt());
+    final myKakaoId = ref.watch(authStateProvider).profile?.kakaoId;
+    final isPartner = myKakaoId != null && log.ownerKakaoId != null && log.ownerKakaoId != myKakaoId;
 
     return GestureDetector(
       onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => DetailScreen(log: log))),
@@ -341,7 +344,9 @@ class _LogCard extends ConsumerWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(AppConstants.radiusL),
-          border: Border.all(color: AppConstants.border),
+          border: Border.all(
+            color: isPartner ? AppConstants.pinkMid : AppConstants.border,
+          ),
         ),
         child: Row(
           children: [
@@ -361,7 +366,29 @@ class _LogCard extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(log.title ?? log.placeName, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppConstants.textPrimary), maxLines: 1, overflow: TextOverflow.ellipsis),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          log.title ?? log.placeName,
+                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppConstants.textPrimary),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (isPartner) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppConstants.pinkLight,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text('파트너', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: AppConstants.pink)),
+                        ),
+                      ],
+                    ],
+                  ),
                   const SizedBox(height: 3),
                   Row(
                     children: [
@@ -377,11 +404,31 @@ class _LogCard extends ConsumerWidget {
                 ],
               ),
             ),
-            const SizedBox(width: 4),
-            GestureDetector(
-              onTap: () => ref.read(dateLogControllerProvider.notifier).delete(log.id),
-              child: const Icon(Icons.delete_outline_rounded, size: 20, color: AppConstants.textSecondary),
-            ),
+            if (!isPartner) ...[
+              const SizedBox(width: 4),
+              GestureDetector(
+                onTap: () async {
+                  final confirmed = await showDialog<bool>(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      title: const Text('기록 삭제'),
+                      content: const Text('이 기록을 삭제할까요?'),
+                      actions: [
+                        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('취소')),
+                        TextButton(
+                          onPressed: () => Navigator.pop(ctx, true),
+                          child: const Text('삭제', style: TextStyle(color: Colors.redAccent)),
+                        ),
+                      ],
+                    ),
+                  );
+                  if (confirmed == true) {
+                    await ref.read(dateLogControllerProvider.notifier).delete(log.id);
+                  }
+                },
+                child: const Icon(Icons.delete_outline_rounded, size: 20, color: AppConstants.textSecondary),
+              ),
+            ],
           ],
         ),
       ),
