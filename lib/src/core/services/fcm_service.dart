@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -6,17 +8,19 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 class FcmService {
   static final _messaging = FirebaseMessaging.instance;
   static final _localNotifications = FlutterLocalNotificationsPlugin();
+  static StreamSubscription<String>? _tokenRefreshSub;
 
   static const _channelId = 'daytory_channel';
   static const _channelName = 'Daytory 알림';
 
   static Future<void> initialize() async {
-    // iOS/Android 알림 권한 요청
-    await _messaging.requestPermission(
+    // 권한 요청 — 거부 시 이후 모든 FCM 처리 중단
+    final settings = await _messaging.requestPermission(
       alert: true,
       badge: true,
       sound: true,
     );
+    if (settings.authorizationStatus == AuthorizationStatus.denied) return;
 
     // Android 포그라운드 알림 채널 생성
     const androidChannel = AndroidNotificationChannel(
@@ -56,8 +60,9 @@ class FcmService {
       if (token == null) return;
       await _updateTokenInSupabase(kakaoId, token);
 
-      // 토큰 갱신 시 자동 업데이트
-      _messaging.onTokenRefresh.listen((newToken) {
+      // 이전 리스너 해제 후 재등록 (로그인 반복 시 누적 방지)
+      await _tokenRefreshSub?.cancel();
+      _tokenRefreshSub = _messaging.onTokenRefresh.listen((newToken) {
         _updateTokenInSupabase(kakaoId, newToken);
       });
     } catch (e) {

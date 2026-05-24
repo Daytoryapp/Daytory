@@ -1,3 +1,4 @@
+import 'package:date_app/firebase_options.dart'; // flutterfire configure 실행 후 자동 생성
 import 'package:date_app/src/app.dart';
 import 'package:date_app/src/core/services/fcm_service.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -12,15 +13,14 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 // 앱이 종료된 상태에서 FCM 메시지 수신 처리 (top-level 필수)
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  await Firebase.initializeApp();
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 }
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await dotenv.load();
 
-  // Firebase 초기화 (flutterfire configure로 생성된 firebase_options.dart 필요)
-  await Firebase.initializeApp();
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
   await Hive.initFlutter();
