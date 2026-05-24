@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'dart:math';
 
+import 'package:date_app/src/core/services/fcm_service.dart';
 import 'package:date_app/src/models/user_profile.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -150,6 +152,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         profile: userProfile,
       );
       _subscribeToPartnerUpdates(kakaoId);
+      unawaited(FcmService.saveToken(kakaoId));
     } catch (_) {
       state = const AuthState(status: AuthStatus.loggedOut);
     }
