@@ -5,6 +5,7 @@ class DatePlace {
     required this.latitude,
     required this.longitude,
     this.eupmyeondong,
+    this.placeName,
   });
 
   final String sido;
@@ -12,13 +13,15 @@ class DatePlace {
   final String? eupmyeondong;
   final double latitude;
   final double longitude;
+  final String? placeName;
 
   String get displayName {
+    if (placeName != null && placeName!.isNotEmpty) return placeName!;
     final short = sido.replaceAll('특별시', '').replaceAll('광역시', '').replaceAll('특별자치시', '').replaceAll('특별자치도', '').replaceAll('도', '');
     return eupmyeondong != null ? '$short $sigungu $eupmyeondong' : '$short $sigungu';
   }
 
-  String get shortName => sigungu;
+  String get shortName => placeName ?? sigungu;
 
   Map<String, dynamic> toMap() => {
         'sido': sido,
@@ -26,6 +29,7 @@ class DatePlace {
         'eupmyeondong': eupmyeondong,
         'latitude': latitude,
         'longitude': longitude,
+        'placeName': placeName,
       };
 
   factory DatePlace.fromMap(Map<String, dynamic> map) => DatePlace(
@@ -34,6 +38,7 @@ class DatePlace {
         eupmyeondong: map['eupmyeondong'] as String?,
         latitude: (map['latitude'] as num).toDouble(),
         longitude: (map['longitude'] as num).toDouble(),
+        placeName: map['placeName'] as String?,
       );
 
   @override

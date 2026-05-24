@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -57,6 +58,11 @@ class _PlacePickerContentState extends State<_PlacePickerContent> {
   SigunguInfo? _selectedSigungu;
   bool _loadingLocation = false;
 
+  final _searchController = TextEditingController();
+  List<DatePlace>? _searchResults;
+  bool _searching = false;
+  Timer? _debounce;
+
   @override
   void initState() {
     super.initState();
@@ -70,6 +76,77 @@ class _PlacePickerContentState extends State<_PlacePickerContent> {
             .firstOrNull;
       }
     }
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _debounce?.cancel();
+    super.dispose();
+  }
+
+  void _onSearchChanged(String query) {
+    _debounce?.cancel();
+    if (query.trim().isEmpty) {
+      setState(() {
+        _searchResults = null;
+        _searching = false;
+      });
+      return;
+    }
+    _debounce = Timer(const Duration(milliseconds: 400), () => _searchPlaces(query.trim()));
+  }
+
+  Future<void> _searchPlaces(String query) async {
+    setState(() => _searching = true);
+    try {
+      final results = await _kakaoKeywordSearch(query);
+      if (mounted) setState(() { _searchResults = results; _searching = false; });
+    } catch (_) {
+      if (mounted) setState(() { _searchResults = []; _searching = false; });
+    }
+  }
+
+  Future<List<DatePlace>> _kakaoKeywordSearch(String query) async {
+    final restKey = dotenv.env['KAKAO_REST_API_KEY'] ?? '';
+    if (restKey.isEmpty || restKey == '여기에_REST_API_키_입력') return [];
+
+    final uri = Uri.parse(
+      'https://dapi.kakao.com/v2/local/search/keyword.json'
+      '?query=${Uri.encodeComponent(query)}&size=15',
+    );
+    final client = HttpClient();
+    client.connectionTimeout = const Duration(seconds: 8);
+    final request = await client.getUrl(uri);
+    request.headers.set('Authorization', 'KakaoAK $restKey');
+    final response = await request.close();
+    final body = await response.transform(utf8.decoder).join();
+    client.close();
+
+    final data = jsonDecode(body) as Map<String, dynamic>;
+    final docs = data['documents'] as List? ?? [];
+
+    return docs.map((d) {
+      final doc = d as Map<String, dynamic>;
+      final name = doc['place_name'] as String? ?? '';
+      final addressName = doc['address_name'] as String? ?? '';
+      final x = double.tryParse(doc['x'] as String? ?? '') ?? 0;
+      final y = double.tryParse(doc['y'] as String? ?? '') ?? 0;
+
+      final parts = addressName.split(' ');
+      final sido = parts.isNotEmpty ? parts[0] : '';
+      final sigungu = parts.length > 1 ? parts[1] : '';
+      final dong = parts.length > 2 && !RegExp(r'^\d').hasMatch(parts[2]) ? parts[2] : null;
+
+      return DatePlace(
+        sido: sido,
+        sigungu: sigungu,
+        eupmyeondong: dong,
+        latitude: y,
+        longitude: x,
+        placeName: name,
+      );
+    }).toList();
   }
 
   Future<void> _useCurrentLocation() async {
@@ -233,6 +310,8 @@ class _PlacePickerContentState extends State<_PlacePickerContent> {
 
   @override
   Widget build(BuildContext context) {
+    final isSearching = _searchController.text.trim().isNotEmpty;
+
     return Column(
       children: [
         Padding(
@@ -254,7 +333,7 @@ class _PlacePickerContentState extends State<_PlacePickerContent> {
                 children: [
                   const Text('장소 선택', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppConstants.textPrimary)),
                   const Spacer(),
-                  if (_selectedSido != null)
+                  if (!isSearching && _selectedSido != null)
                     TextButton(
                       onPressed: () => setState(() {
                         _selectedSido = null;
@@ -264,7 +343,34 @@ class _PlacePickerContentState extends State<_PlacePickerContent> {
                     ),
                 ],
               ),
-              if (_selectedSido != null) ...[
+              const SizedBox(height: 12),
+              // 검색창
+              TextField(
+                controller: _searchController,
+                onChanged: _onSearchChanged,
+                decoration: InputDecoration(
+                  hintText: '장소명으로 검색 (예: 스타벅스 강남역)',
+                  hintStyle: const TextStyle(fontSize: 14, color: AppConstants.textHint),
+                  prefixIcon: const Icon(Icons.search_rounded, size: 20, color: AppConstants.textSecondary),
+                  suffixIcon: isSearching
+                      ? IconButton(
+                          icon: const Icon(Icons.close_rounded, size: 18, color: AppConstants.textSecondary),
+                          onPressed: () {
+                            _searchController.clear();
+                            _onSearchChanged('');
+                          },
+                        )
+                      : null,
+                  filled: true,
+                  fillColor: AppConstants.surface,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(AppConstants.radiusM),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+              ),
+              if (!isSearching && _selectedSido != null) ...[
                 const SizedBox(height: 8),
                 _Breadcrumb(sido: _selectedSido!.name, sigungu: _selectedSigungu?.name),
               ],
@@ -273,46 +379,56 @@ class _PlacePickerContentState extends State<_PlacePickerContent> {
         ),
         const SizedBox(height: 8),
         const Divider(height: 1),
-        // 현재 위치 버튼 (시도 선택 전에만 표시)
-        if (_selectedSido == null)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
-            child: SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: _loadingLocation ? null : _useCurrentLocation,
-                icon: _loadingLocation
-                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Icon(Icons.my_location_rounded, size: 18),
-                label: Text(_loadingLocation ? '위치 확인 중...' : '현재 위치 사용'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xFF4A8FE7),
-                  side: const BorderSide(color: Color(0xFF4A8FE7)),
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppConstants.radiusM),
+
+        if (isSearching)
+          Expanded(child: _SearchResultList(
+            results: _searchResults,
+            searching: _searching,
+            scrollController: widget.scrollController,
+            onSelected: (place) => Navigator.of(context).pop(place),
+          ))
+        else ...[
+          // 현재 위치 버튼 (시도 선택 전에만 표시)
+          if (_selectedSido == null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
+              child: SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: _loadingLocation ? null : _useCurrentLocation,
+                  icon: _loadingLocation
+                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Icon(Icons.my_location_rounded, size: 18),
+                  label: Text(_loadingLocation ? '위치 확인 중...' : '현재 위치 사용'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF4A8FE7),
+                    side: const BorderSide(color: Color(0xFF4A8FE7)),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppConstants.radiusM),
+                    ),
                   ),
                 ),
               ),
             ),
+          if (_selectedSido == null) const Divider(height: 1),
+          Expanded(
+            child: _selectedSido == null
+                ? _SidoList(
+                    scrollController: widget.scrollController,
+                    onSelected: (sido) => setState(() => _selectedSido = sido),
+                  )
+                : _SigunguList(
+                    scrollController: widget.scrollController,
+                    sido: _selectedSido!,
+                    onSelected: (sigungu) {
+                      Navigator.of(context).pop(
+                        PlaceConstants.toDatePlace(_selectedSido!.name, sigungu),
+                      );
+                    },
+                  ),
           ),
-        if (_selectedSido == null) const Divider(height: 1),
-        Expanded(
-          child: _selectedSido == null
-              ? _SidoList(
-                  scrollController: widget.scrollController,
-                  onSelected: (sido) => setState(() => _selectedSido = sido),
-                )
-              : _SigunguList(
-                  scrollController: widget.scrollController,
-                  sido: _selectedSido!,
-                  onSelected: (sigungu) {
-                    Navigator.of(context).pop(
-                      PlaceConstants.toDatePlace(_selectedSido!.name, sigungu),
-                    );
-                  },
-                ),
-        ),
+        ],
       ],
     );
   }
@@ -395,6 +511,62 @@ class _SigunguList extends StatelessWidget {
           leading: const Icon(Icons.location_on_outlined, color: AppConstants.pink, size: 20),
           title: Text(sigungu.name, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: AppConstants.textPrimary)),
           onTap: () => onSelected(sigungu),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 2),
+        );
+      },
+    );
+  }
+}
+
+class _SearchResultList extends StatelessWidget {
+  const _SearchResultList({
+    required this.results,
+    required this.searching,
+    required this.scrollController,
+    required this.onSelected,
+  });
+  final List<DatePlace>? results;
+  final bool searching;
+  final ScrollController scrollController;
+  final ValueChanged<DatePlace> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    if (searching) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (results == null || results!.isEmpty) {
+      return const Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.search_off_rounded, size: 40, color: AppConstants.textHint),
+            SizedBox(height: 12),
+            Text('검색 결과가 없어요', style: TextStyle(fontSize: 14, color: AppConstants.textSecondary)),
+          ],
+        ),
+      );
+    }
+    return ListView.builder(
+      controller: scrollController,
+      itemCount: results!.length,
+      itemBuilder: (context, index) {
+        final place = results![index];
+        final subLabel = [
+          if (place.sido.isNotEmpty) place.sido,
+          if (place.sigungu.isNotEmpty) place.sigungu,
+          if (place.eupmyeondong != null) place.eupmyeondong!,
+        ].join(' ');
+        return ListTile(
+          leading: const Icon(Icons.location_on_outlined, color: AppConstants.pink, size: 20),
+          title: Text(
+            place.placeName ?? place.displayName,
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: AppConstants.textPrimary),
+          ),
+          subtitle: subLabel.isNotEmpty
+              ? Text(subLabel, style: const TextStyle(fontSize: 12, color: AppConstants.textSecondary))
+              : null,
+          onTap: () => onSelected(place),
           contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 2),
         );
       },
