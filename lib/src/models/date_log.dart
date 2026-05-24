@@ -12,10 +12,12 @@ class DateLog {
     required this.tags,
     required this.photos,
     this.title,
+    this.ownerKakaoId,
   }) : assert(places.isNotEmpty);
 
   final String id;
   final String? title;
+  final String? ownerKakaoId;
   final DateTime startedAt;
   final DateTime endedAt;
   final String memo;
@@ -49,6 +51,7 @@ class DateLog {
         'places': places.map((p) => p.toMap()).toList(),
         'tags': tags,
         'photos': photos,
+        'ownerKakaoId': ownerKakaoId,
       };
 
   factory DateLog.fromMap(Map<String, dynamic> map) {
@@ -71,6 +74,7 @@ class DateLog {
       places: places,
       tags: List<String>.from(map['tags'] as List),
       photos: List<String>.from(map['photos'] as List),
+      ownerKakaoId: map['ownerKakaoId'] as String?,
     );
   }
 
@@ -102,6 +106,7 @@ class DateLog {
       places: places,
       tags: List<String>.from((row['tags'] as List?) ?? []),
       photos: List<String>.from((row['photo_urls'] as List?) ?? []),
+      ownerKakaoId: row['kakao_id'] as String?,
     );
   }
 
@@ -148,6 +153,7 @@ class DateLog {
       places: places ?? this.places,
       tags: tags ?? this.tags,
       photos: photos ?? this.photos,
+      ownerKakaoId: ownerKakaoId,
     );
   }
 }

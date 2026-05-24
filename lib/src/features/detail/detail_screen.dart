@@ -4,6 +4,7 @@ import 'package:date_app/src/core/constants/app_constants.dart';
 import 'package:date_app/src/core/widgets/mood_widget.dart';
 import 'package:date_app/src/features/add/add_log_screen.dart';
 import 'package:date_app/src/models/date_log.dart';
+import 'package:date_app/src/state/auth_state.dart';
 import 'package:date_app/src/state/date_log_state.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -23,6 +24,9 @@ class DetailScreen extends ConsumerWidget {
     final moodColor = AppConstants.moodColors[log.moodScore.clamp(1, 5)];
     final costStr = NumberFormat('#,###').format(log.totalCost.toInt());
 
+    final myKakaoId = ref.watch(authStateProvider).profile?.kakaoId;
+    final isOwn = myKakaoId == null || log.ownerKakaoId == null || log.ownerKakaoId == myKakaoId;
+
     final startH = log.startedAt.hour.toString().padLeft(2, '0');
     final startM = log.startedAt.minute.toString().padLeft(2, '0');
     final endH = log.endedAt.hour.toString().padLeft(2, '0');
@@ -38,6 +42,7 @@ class DetailScreen extends ConsumerWidget {
           onPressed: () => Navigator.of(context).pop(),
         ),
         actions: [
+          if (isOwn)
           IconButton(
             icon: const Icon(Icons.edit_outlined),
             tooltip: '수정',
@@ -52,6 +57,7 @@ class DetailScreen extends ConsumerWidget {
               }
             },
           ),
+          if (isOwn)
           IconButton(
             icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
             tooltip: '삭제',

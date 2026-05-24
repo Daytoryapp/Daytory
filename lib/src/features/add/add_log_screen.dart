@@ -468,9 +468,20 @@ class _PlaceRow extends StatelessWidget {
               const Icon(Icons.location_on_outlined, size: 16, color: AppConstants.textSecondary),
               const SizedBox(width: 4),
               Expanded(
-                child: Text(
-                  place.displayName,
-                  style: const TextStyle(fontSize: 14, color: AppConstants.textPrimary),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      place.displayName,
+                      style: const TextStyle(fontSize: 14, color: AppConstants.textPrimary),
+                    ),
+                    if (place.placeName != null && place.sido.isNotEmpty)
+                      Text(
+                        [place.sido, place.sigungu, if (place.eupmyeondong != null) place.eupmyeondong!].join(' '),
+                        style: const TextStyle(fontSize: 11, color: AppConstants.textSecondary),
+                      ),
+                  ],
                 ),
               ),
               GestureDetector(

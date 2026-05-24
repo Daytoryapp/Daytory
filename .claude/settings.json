@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cat /opt/homebrew/share/flutter/packages/flutter_tools/gradle/src/main/groovy/flutter.groovy 2>/dev/null | grep -A2 \"minSdkVersion\" | head -10 || grep -r \"static int minSdkVersion\" /opt/homebrew/share/flutter/packages/flutter_tools/ 2>/dev/null | head -5)",
+      "Read(//opt/homebrew/share/flutter/packages/flutter_tools/gradle/src/main/groovy/**)",
+      "Read(//opt/homebrew/share/flutter/packages/flutter_tools/**)"
+    ]
+  }
+}

@@ -70,6 +70,22 @@ class MypageScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 24),
 
+          // ── 기념일 마일스톤 ────────────────────────────────────────────────
+          if (profile?.anniversaryDate != null) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const _SectionTitle(title: '기념일'),
+                  const SizedBox(height: 12),
+                  _MilestoneSection(anniversary: profile!.anniversaryDate!),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+          ],
+
           // ── 우리의 기록 ────────────────────────────────────────────────────
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -638,6 +654,91 @@ class _SectionTitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppConstants.textPrimary));
+  }
+}
+
+// ── 기념일 마일스톤 ──────────────────────────────────────────────────────────
+
+const _kMilestones = [100, 200, 300, 365, 500, 700, 730, 1000, 1095, 1460, 1825];
+
+class _MilestoneSection extends StatelessWidget {
+  const _MilestoneSection({required this.anniversary});
+  final DateTime anniversary;
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final anniversaryDay = DateTime(anniversary.year, anniversary.month, anniversary.day);
+    final ddays = today.difference(anniversaryDay).inDays;
+
+    // 다음 마일스톤
+    final next = _kMilestones.where((m) => m > ddays).toList();
+    final nextMilestone = next.isNotEmpty ? next.first : null;
+    final daysLeft = nextMilestone != null ? nextMilestone - ddays : null;
+
+    // 지난 마일스톤
+    final past = _kMilestones.where((m) => m <= ddays).toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (nextMilestone != null)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFFFFEAF2), Color(0xFFFFF8F5)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(AppConstants.radiusL),
+            ),
+            child: Row(
+              children: [
+                const Text('🎉', style: TextStyle(fontSize: 28)),
+                const SizedBox(width: 14),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'D+$nextMilestone까지',
+                      style: const TextStyle(fontSize: 13, color: AppConstants.textSecondary, fontWeight: FontWeight.w500),
+                    ),
+                    Text(
+                      '$daysLeft일 남았어요',
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppConstants.pink, letterSpacing: -0.3),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        if (past.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: past.reversed.take(6).map((m) {
+              final label = m % 365 == 0 ? '${m ~/ 365}주년' : 'D+$m';
+              return Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                decoration: BoxDecoration(
+                  color: AppConstants.surface,
+                  borderRadius: BorderRadius.circular(AppConstants.radiusM),
+                  border: Border.all(color: AppConstants.pinkMid),
+                ),
+                child: Text(
+                  '✓ $label',
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppConstants.pink),
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+      ],
+    );
   }
 }
 
